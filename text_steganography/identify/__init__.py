@@ -9,12 +9,18 @@ alignment planned for a later phase.
 from __future__ import annotations
 
 from .matcher import evaluate_candidate, hamming, identify_bits, min_pairwise_distance
-from .models import CandidateMatch, FingerprintPreflight, IdentificationResult
+from .models import (
+    AlignmentResult,
+    CandidateMatch,
+    FingerprintPreflight,
+    IdentificationResult,
+)
 
 __all__ = [
     "CandidateMatch",
     "IdentificationResult",
     "FingerprintPreflight",
+    "AlignmentResult",
     "identify_bits",
     "evaluate_candidate",
     "hamming",

@@ -17,7 +17,7 @@ from .core.planner import build_plan
 from .core.symbol_packing import pack_bits_into_symbols, site_bit_width, sites_consumed
 from .errors import CapacityError
 from .identify.matcher import identify_bits, min_pairwise_distance
-from .identify.models import FingerprintPreflight, IdentificationResult
+from .identify.models import AlignmentResult, FingerprintPreflight, IdentificationResult
 from .models import (
     CapacityReport,
     ChannelCapacity,
@@ -278,18 +278,88 @@ class TextSteganographyCodec:
             text = channel.canonicalize(text)
         return text
 
+    def align_excerpt(self, cover_text: str, excerpt: str) -> AlignmentResult:
+        """Locate an excerpt within its original cover and map its sites.
+
+        Canonicalizes both texts and finds where the excerpt sits in the cover.
+        On a unique match, it reads the excerpt's surviving symbols and places
+        them at their true global bit positions, leaving the rest erased. This
+        assumes the channels in use preserve character offsets under
+        canonicalization (the single-character channels shipped so far do).
+        """
+        plan = build_plan(self.config, cover_text)
+        offset_map = {}
+        bit_offset = 0
+        for planned in plan.planned_sites:
+            offset_map[(planned.channel_index, planned.site.start)] = (bit_offset, planned.width)
+            bit_offset += planned.width
+        global_capacity = bit_offset
+
+        canon_cover = self.canonicalize(cover_text)
+        canon_excerpt = self.canonicalize(excerpt)
+
+        occurrences = []
+        if canon_excerpt:
+            search_from = 0
+            while True:
+                found = canon_cover.find(canon_excerpt, search_from)
+                if found == -1:
+                    break
+                occurrences.append(found)
+                search_from = found + 1
+
+        if not occurrences:
+            return AlignmentResult("not_found", None, 0, 0, global_capacity, None)
+        if len(occurrences) > 1:
+            return AlignmentResult("ambiguous", None, len(occurrences), 0, global_capacity, None)
+
+        offset = occurrences[0]
+        slots: List[Optional[int]] = [None] * global_capacity
+        mapped = 0
+        for channel_index, channel in enumerate(self.config.channels):
+            sites = channel.discover_sites(excerpt)
+            observations = channel.observe(excerpt)
+            for site, observation in zip(sites, observations):
+                target = offset_map.get((channel_index, offset + site.start))
+                if target is None:
+                    continue
+                position, width = target
+                if (
+                    observation.state is ObservationState.KNOWN
+                    and observation.symbol is not None
+                    and observation.symbol < (1 << width)
+                ):
+                    for index, bit in enumerate(int_to_bits(observation.symbol, width)):
+                        slots[position + index] = bit
+                    mapped += 1
+
+        return AlignmentResult("aligned", offset, 1, mapped, global_capacity, tuple(slots))
+
     def identify(
-        self, observed_text: str, candidates: Sequence[bytes]
+        self,
+        observed_text: str,
+        candidates: Sequence[bytes],
+        *,
+        cover_text: Optional[str] = None,
     ) -> IdentificationResult:
         """Rank candidate payloads by consistency with a leaked copy.
 
-        This compares the surviving evidence in ``observed_text`` against the
-        codeword each candidate would have produced, and reports which remain
-        consistent. It assumes a full-length text whose sites may have been
-        normalized or flipped; it does not align arbitrary excerpts. It can
-        narrow the source even when ``decode`` cannot recover a payload.
+        Without ``cover_text``, ``observed_text`` is treated as a full-length
+        copy whose sites may have been normalized or flipped. With
+        ``cover_text``, ``observed_text`` is treated as an excerpt: it is
+        aligned within the cover first, and only the sites it covers contribute
+        evidence. Either way this can narrow the source even when ``decode``
+        cannot recover a payload.
         """
-        slots, _, _, _ = self._observe_slots(observed_text)
+        if cover_text is None:
+            observed_slots, _, _, _ = self._observe_slots(observed_text)
+            slots: Sequence[Optional[int]] = observed_slots
+        else:
+            alignment = self.align_excerpt(cover_text, observed_text)
+            if alignment.slots is not None:
+                slots = alignment.slots
+            else:
+                slots = [None] * alignment.global_capacity
         candidate_bits = [
             (payload, self._expected_codeword_bits(payload)) for payload in candidates
         ]
