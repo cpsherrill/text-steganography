@@ -1,0 +1,41 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "text-steganography"
+version = "0.0.0"
+description = "Hide small payloads in the entropy of a text's literal representation, without changing what a reader sees."
+readme = "README.md"
+requires-python = ">=3.9"
+license = { file = "LICENSE" }
+authors = [{ name = "Colin Sherrill", email = "colin.sherrill@gmail.com" }]
+keywords = [
+    "steganography",
+    "text-steganography",
+    "watermarking",
+    "fingerprinting",
+    "traitor-tracing",
+    "unicode",
+]
+classifiers = [
+    "Development Status :: 1 - Planning",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Topic :: Security",
+    "Topic :: Text Processing",
+]
+dependencies = []
+
+[project.optional-dependencies]
+dev = ["pytest>=7", "hypothesis>=6"]
+
+[project.urls]
+Homepage = "https://github.com/cpsherrill/text-steganography"
+Repository = "https://github.com/cpsherrill/text-steganography"
+Design = "https://github.com/cpsherrill/text-steganography/blob/main/docs/DESIGN.md"
+
+[tool.hatch.build.targets.wheel]
+packages = ["text_steganography"]
