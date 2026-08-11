@@ -1,0 +1,34 @@
+{
+  "codec_id": "dcd23847fba762a2",
+  "config": {
+    "channels": [
+      {
+        "id": "whitespace.unicode_space",
+        "params": {},
+        "version": "1"
+      },
+      {
+        "id": "punctuation.apostrophe",
+        "params": {},
+        "version": "1"
+      }
+    ],
+    "framing": {
+      "format": "length_crc_v1"
+    },
+    "packing": "power_of_two",
+    "repertoire": {
+      "allow_bidi_controls": false,
+      "allow_cross_script": false,
+      "allow_joiners": false,
+      "scripts": [
+        "Latin"
+      ]
+    },
+    "schema_version": 1
+  },
+  "cover_text": "it's it's it's it's it's it's it's it's it's it's it's it's it's it's it's it's it's it's it's it's it's it's it's it's it's it's it's it's it's it's it's it's it's it's it's it's it's it's it's it's it's it's it's it's it's it's it's it's it's it's it's it's it's it's it's it's it's it's it's it's it's it's it's it's it's it's it's it's it's it's it's it's it's it's it's it's it's it's it's it's it's it's it's it's it's it's it's it's it's it's it's it's it's it's it's it's it's it's it's it's",
+  "description": "space + apostrophe channels over 100 repetitions of \"it's\", payload b'NIJ-2021'",
+  "expected_stego": "it\u2019s it's\u00a0it's it's\u00a0it\u2019s it's it\u2019s\u00a0it's\u00a0it's it's\u00a0it\u2019s it\u2019s\u00a0it's it\u2019s\u00a0it\u2019s it\u2019s it's it\u2019s it\u2019s it\u2019s it's it\u2019s it's it\u2019s\u00a0it's it's it's it\u2019s it's it\u2019s it's it\u2019s it's it\u2019s it\u2019s it's it\u2019s\u00a0it's it's it's it's it's\u00a0it's it's it's\u00a0it's\u00a0it's\u00a0it's it's it's\u00a0it's it's it's\u00a0it's it's it's\u00a0it's it's\u00a0it's it's it's\u00a0it's it's\u00a0it's it's it's it's\u00a0it's it's\u00a0it's\u00a0it's it's\u00a0it's it's it's\u00a0it's\u00a0it's it's it's\u00a0it's it's it's it's\u00a0it's\u00a0it's it's it's it's it's it's it's\u00a0it's\u00a0it's it's it's\u00a0it's it's it's it's\u00a0it's",
+  "payload_hex": "4e494a2d32303231"
+}

@@ -13,10 +13,18 @@ different, and the difference carries the payload.
 
 ## Status
 
-Early scaffold. The full design is written and lives in
-[docs/DESIGN.md](docs/DESIGN.md). No functionality is implemented yet. This
-commit is the repository skeleton: packaging, license, and the design of
-record.
+Phase 1 is under way and usable. Implemented today:
+
+- the `analyze` / `encode` / `decode` / `canonicalize` workflow;
+- two channels: Unicode spaces and contraction apostrophes;
+- versioned configuration with a stable `codec_id`;
+- power-of-two packing and `length_crc_v1` framing with integrity checks;
+- the `inspect` diagnostic and a `tsteg` command-line tool;
+- golden vectors and property-based tests, green on Python 3.9.
+
+Not built yet: error correction, partial-observation identification, fragment
+alignment, carrier adapters, and the remaining channels. The full plan and the
+reasoning behind it live in [docs/DESIGN.md](docs/DESIGN.md).
 
 ## The core idea
 
@@ -71,6 +79,50 @@ python3 -m pip install -e ".[dev]"
 ```
 
 Requires Python 3.9 or newer.
+
+## Quickstart
+
+### Python
+
+```python
+from text_steganography import (
+    ApostropheChannel,
+    CodecConfig,
+    TextSteganographyCodec,
+    UnicodeSpaceChannel,
+)
+
+codec = TextSteganographyCodec(
+    CodecConfig(channels=[UnicodeSpaceChannel(), ApostropheChannel()])
+)
+
+cover = " ".join(["it's"] * 100)
+
+report = codec.analyze(cover)
+print(report.usable_payload_bytes, "usable bytes")
+
+stego = codec.encode(cover, b"recipient-0847").text
+result = codec.decode(stego)
+print(result.status.value, result.payload)   # success b'recipient-0847'
+
+assert codec.canonicalize(stego) == cover     # invisible: it canonicalizes back
+```
+
+### Command line
+
+```bash
+# how much can this text carry?
+tsteg analyze -i cover.txt
+
+# embed a payload (defaults to the Unicode-space channel)
+tsteg encode -i cover.txt -o stego.txt --text "recipient-0847"
+
+# recover it
+tsteg decode -i stego.txt
+
+# see which unusual code points a text contains
+tsteg inspect -i stego.txt
+```
 
 ## Planned phases
 
