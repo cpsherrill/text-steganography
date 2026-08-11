@@ -5,106 +5,35 @@ At each single inter-word space, this channel chooses between an ordinary space
 almost every font, so the choice is invisible to a reader, and it carries one
 bit per eligible space.
 
-A site is a space variant with a non-whitespace character on each side. That
-definition is the same during encoding and decoding, so the k-th site found in
-the cover text is the k-th site found in the stegotext even though no offsets
-are stored. Runs of two or more spaces and leading or trailing spaces are
-skipped, because they are ambiguous under collapsing transports.
+A site is a space variant with a non-whitespace character on each side. Runs of
+two or more spaces and leading or trailing spaces are skipped, because they are
+ambiguous under collapsing transports.
 
 This is the conservative starter channel. It is not robust: many editors and
 platforms normalize a no-break space back to a plain space, which silently
-erases the bit. That is a property of the transport, not a defect here, and
-the compatibility work in a later phase is where it gets measured.
+erases the bit. That is a property of the transport, not a defect here, and the
+compatibility work in a later phase is where it gets measured.
 """
 
 from __future__ import annotations
 
-from typing import List, Optional
-
-from ...models import (
-    ChannelMetadata,
-    EmbeddingSite,
-    Invariant,
-    Observation,
-    ObservationState,
-    Risk,
-)
-from ..base import BaseChannel, ChannelContext, register_channel
+from ...models import ChannelMetadata, Invariant, Risk
+from .._single_char import SingleCharSubstitutionChannel
+from ..base import register_channel
 
 _SPACE = "\u0020"
 _NBSP = "\u00a0"
 
 
 @register_channel
-class UnicodeSpaceChannel(BaseChannel):
+class UnicodeSpaceChannel(SingleCharSubstitutionChannel):
     id = "whitespace.unicode_space"
     version = "1"
+    variants = (_SPACE, _NBSP)
+    canonical = _SPACE
 
-    def __init__(self) -> None:
-        self.variants = (_SPACE, _NBSP)
-        self.canonical = _SPACE
-        self._variant_set = set(self.variants)
-
-    def _is_site(self, text: str, i: int) -> bool:
-        if not 0 < i < len(text) - 1:
-            return False
-        if text[i] not in self._variant_set:
-            return False
+    def _eligible(self, text: str, i: int) -> bool:
         return not text[i - 1].isspace() and not text[i + 1].isspace()
-
-    def discover_sites(
-        self, text: str, context: Optional[ChannelContext] = None
-    ) -> List[EmbeddingSite]:
-        sites: List[EmbeddingSite] = []
-        ordinal = 0
-        for i in range(len(text)):
-            if self._is_site(text, i):
-                sites.append(
-                    EmbeddingSite(
-                        channel_id=self.id,
-                        ordinal=ordinal,
-                        start=i,
-                        end=i + 1,
-                        variants=self.variants,
-                        canonical=self.canonical,
-                    )
-                )
-                ordinal += 1
-        return sites
-
-    def observe(
-        self, text: str, context: Optional[ChannelContext] = None
-    ) -> List[Observation]:
-        observations: List[Observation] = []
-        ordinal = 0
-        for i in range(len(text)):
-            if self._is_site(text, i):
-                char = text[i]
-                symbol: Optional[int]
-                try:
-                    symbol = self.variants.index(char)
-                    state = ObservationState.KNOWN
-                except ValueError:
-                    symbol = None
-                    state = ObservationState.ERASED
-                observations.append(
-                    Observation(
-                        channel_id=self.id,
-                        ordinal=ordinal,
-                        state=state,
-                        symbol=symbol,
-                        radix=len(self.variants),
-                        raw=char,
-                    )
-                )
-                ordinal += 1
-        return observations
-
-    def canonicalize(self, text: str) -> str:
-        chars = list(text)
-        for site in self.discover_sites(text):
-            chars[site.start] = self.canonical
-        return "".join(chars)
 
     def metadata(self) -> ChannelMetadata:
         return ChannelMetadata(
