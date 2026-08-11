@@ -4,6 +4,9 @@ A channel is one hiding mechanism. It finds its own eligible sites, offers the
 literal variants available at each, recognizes those variants when decoding,
 and canonicalizes them back to a neutral form. The core owns everything else:
 payload bits, packing, framing, and identification.
+
+Importing this package registers the built-in channels so a serialized
+configuration can be reconstructed by id.
 """
 
 from __future__ import annotations
@@ -15,6 +18,7 @@ from .base import (
     get_channel_class,
     register_channel,
 )
+from .whitespace import UnicodeSpaceChannel
 
 __all__ = [
     "BaseChannel",
@@ -22,4 +26,5 @@ __all__ = [
     "build_channel",
     "get_channel_class",
     "register_channel",
+    "UnicodeSpaceChannel",
 ]
