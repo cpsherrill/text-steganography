@@ -80,12 +80,18 @@ class TextSteganographyCodec:
         realizable = sum(capacity.packed_bits for capacity in per_channel)
         raw_total = sum(capacity.raw_bits for capacity in per_channel)
 
-        if realizable < _TOTAL_OVERHEAD_BITS:
+        # Error correction spends part of the realizable capacity on redundancy.
+        # message_len is the whole message bits that survive after that spend.
+        ecc = self.config.error_correction
+        message_capacity_bits = ecc.message_len(realizable)
+        ecc_overhead_bits = ecc.codeword_len(message_capacity_bits) - message_capacity_bits
+
+        if message_capacity_bits < _TOTAL_OVERHEAD_BITS:
             usable_bytes = 0
             usable_bits = 0
             max_payloads = 0
         else:
-            usable_bytes = (realizable - _TOTAL_OVERHEAD_BITS) // 8
+            usable_bytes = (message_capacity_bits - _TOTAL_OVERHEAD_BITS) // 8
             usable_bits = usable_bytes * 8
             max_payloads = 1 << usable_bits
 
@@ -96,7 +102,7 @@ class TextSteganographyCodec:
             realizable_packed_bits=realizable,
             framing_overhead_bits=_FRAMING_OVERHEAD_BITS,
             integrity_overhead_bits=_INTEGRITY_OVERHEAD_BITS,
-            ecc_overhead_bits=0,
+            ecc_overhead_bits=ecc_overhead_bits,
             usable_payload_bits=usable_bits,
             usable_payload_bytes=usable_bytes,
             max_distinct_payloads=max_payloads,
@@ -110,14 +116,16 @@ class TextSteganographyCodec:
         capacity = sum(widths)
 
         framed_bits = bytes_to_bits(frame(payload))
-        need = len(framed_bits)
+        codeword_bits = self.config.error_correction.encode_bits(framed_bits)
+        need = len(codeword_bits)
         if need > capacity:
             raise CapacityError(
-                f"payload of {len(payload)} bytes needs {need} bits once framed, but "
-                f"this text offers {capacity} bits under codec {self.codec_id}"
+                f"payload of {len(payload)} bytes needs {need} bits once framed and "
+                f"error-corrected, but this text offers {capacity} bits under codec "
+                f"{self.codec_id}"
             )
 
-        symbols = pack_bits_into_symbols(framed_bits, widths)
+        symbols = pack_bits_into_symbols(codeword_bits, widths)
 
         edits = []
         for planned, symbol in zip(plan.planned_sites, symbols):
@@ -174,44 +182,69 @@ class TextSteganographyCodec:
             observations=tuple(observations),
         )
 
-        if len(slots) < _HEADER_BITS:
+        ecc = self.config.error_correction
+        block = ecc.codeword_block_bits
+        message_block = ecc.message_block_bits
+
+        def decode_message_prefix(message_bits_wanted: int):
+            """Decode the first ``message_bits_wanted`` message bits.
+
+            Returns (bits, corrected, status) where status is one of "ok",
+            "insufficient" (not enough observed codeword), or "uncorrectable"
+            (a block could not be resolved).
+            """
+            num_blocks = message_bits_wanted // message_block
+            codeword_needed = num_blocks * block
+            if len(slots) < codeword_needed:
+                return None, 0, "insufficient"
+            bits: List[int] = []
+            corrected_total = 0
+            for index in range(num_blocks):
+                block_obs = slots[index * block : (index + 1) * block]
+                result = ecc.decode_block(block_obs)
+                if result.bits is None:
+                    return None, corrected_total, "uncorrectable"
+                bits.extend(result.bits)
+                corrected_total += result.corrected
+            return bits, corrected_total, "ok"
+
+        header_bits, _, header_status = decode_message_prefix(_HEADER_BITS)
+        if header_status == "insufficient":
             return DecodeResult(
                 status=DecodeStatus.INSUFFICIENT_EVIDENCE, payload=None, **common
             )
-
-        header_slots = slots[:_HEADER_BITS]
-        if any(slot is None for slot in header_slots):
+        if header_status == "uncorrectable":
             return DecodeResult(status=DecodeStatus.PARTIAL, payload=None, **common)
 
-        header_bytes = bits_to_bytes([int(slot) for slot in header_slots])
+        header_bytes = bits_to_bytes(header_bits)
         if header_bytes[0:2] != MAGIC:
             return DecodeResult(status=DecodeStatus.INVALID, payload=None, **common)
 
         version = header_bytes[2]
         length = int.from_bytes(header_bytes[3:5], "big")
-        total_bits = (OVERHEAD_BYTES + length) * 8
+        total_message_bits = (OVERHEAD_BYTES + length) * 8
 
-        if len(slots) < total_bits:
+        frame_bits, corrected, frame_status = decode_message_prefix(total_message_bits)
+        if frame_status == "insufficient":
             return DecodeResult(
                 status=DecodeStatus.INSUFFICIENT_EVIDENCE,
                 payload=None,
                 frame_version=version,
                 **common,
             )
-
-        frame_slots = slots[:total_bits]
-        if any(slot is None for slot in frame_slots):
+        if frame_status == "uncorrectable":
             return DecodeResult(
                 status=DecodeStatus.PARTIAL, payload=None, frame_version=version, **common
             )
 
-        parsed = unframe(bits_to_bytes([int(slot) for slot in frame_slots]))
+        parsed = unframe(bits_to_bytes(frame_bits))
         if not parsed.integrity_valid:
             return DecodeResult(
                 status=DecodeStatus.INVALID,
                 payload=None,
                 frame_version=parsed.version,
                 integrity_valid=False,
+                corrected_errors=corrected,
                 **common,
             )
 
@@ -220,6 +253,7 @@ class TextSteganographyCodec:
             payload=parsed.payload,
             frame_version=parsed.version,
             integrity_valid=True,
+            corrected_errors=corrected,
             **common,
         )
 

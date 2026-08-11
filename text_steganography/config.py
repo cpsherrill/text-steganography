@@ -15,6 +15,7 @@ from enum import Enum
 from typing import Any, Dict, List
 
 from .channels.base import BaseChannel, build_channel
+from .ecc import ErrorCorrectingCodec, NoErrorCorrection, build_ecc
 
 SCHEMA_VERSION = 1
 
@@ -79,10 +80,11 @@ class CodecConfig:
     repertoire: RepertoirePolicy = field(default_factory=RepertoirePolicy)
     packing: PackingMode = PackingMode.POWER_OF_TWO
     framing: FramingConfig = field(default_factory=FramingConfig)
+    error_correction: ErrorCorrectingCodec = field(default_factory=NoErrorCorrection)
     schema_version: int = SCHEMA_VERSION
 
     def to_dict(self) -> Dict[str, Any]:
-        return {
+        data: Dict[str, Any] = {
             "schema_version": self.schema_version,
             "channels": [
                 {"id": channel.id, "version": channel.version, "params": channel.params()}
@@ -92,6 +94,16 @@ class CodecConfig:
             "packing": self.packing.value,
             "framing": self.framing.to_dict(),
         }
+        # The identity codec is the default. Omitting it keeps a config that
+        # uses no error correction serializing exactly as it did before the
+        # ECC layer existed, so its codec_id and golden vectors stay stable.
+        if self.error_correction.id != "ecc.none":
+            data["error_correction"] = {
+                "id": self.error_correction.id,
+                "version": self.error_correction.version,
+                "params": self.error_correction.params(),
+            }
+        return data
 
     def canonical_json(self) -> str:
         """A deterministic JSON serialization used for hashing and storage."""
@@ -111,10 +123,18 @@ class CodecConfig:
             build_channel(entry["id"], entry.get("version", ""), entry.get("params", {}))
             for entry in data["channels"]
         ]
+        ecc_data = data.get("error_correction")
+        if ecc_data:
+            error_correction: ErrorCorrectingCodec = build_ecc(
+                ecc_data["id"], ecc_data.get("version", ""), ecc_data.get("params", {})
+            )
+        else:
+            error_correction = NoErrorCorrection()
         return cls(
             channels=channels,
             repertoire=RepertoirePolicy.from_dict(data.get("repertoire", {})),
             packing=PackingMode(data.get("packing", PackingMode.POWER_OF_TWO.value)),
             framing=FramingConfig.from_dict(data.get("framing", {})),
+            error_correction=error_correction,
             schema_version=int(data.get("schema_version", SCHEMA_VERSION)),
         )

@@ -16,18 +16,22 @@ from typing import List, Optional
 from ..channels.base import get_channel_class
 from ..codec import TextSteganographyCodec
 from ..config import CodecConfig
+from ..ecc import NoErrorCorrection, RepetitionCode
 from ..errors import TextSteganographyError
 from ..inspect import inspect_text
 
 DEFAULT_CHANNELS = "whitespace.unicode_space"
 
 
-def _build_codec(channels_arg: str) -> TextSteganographyCodec:
+def _build_codec(channels_arg: str, ecc_repeat: int = 1) -> TextSteganographyCodec:
     ids = [part.strip() for part in channels_arg.split(",") if part.strip()]
     if not ids:
         raise TextSteganographyError("no channels specified")
     channels = [get_channel_class(channel_id)() for channel_id in ids]
-    return TextSteganographyCodec(CodecConfig(channels=channels))
+    error_correction = RepetitionCode(repeat=ecc_repeat) if ecc_repeat > 1 else NoErrorCorrection()
+    return TextSteganographyCodec(
+        CodecConfig(channels=channels, error_correction=error_correction)
+    )
 
 
 def _read_text(path: Optional[str]) -> str:
@@ -54,7 +58,7 @@ def _payload_from_args(args: argparse.Namespace) -> bytes:
 
 
 def _cmd_analyze(args: argparse.Namespace) -> int:
-    codec = _build_codec(args.channels)
+    codec = _build_codec(args.channels, args.ecc_repeat)
     report = codec.analyze(_read_text(args.input))
     if args.json:
         payload = {
@@ -84,7 +88,7 @@ def _cmd_analyze(args: argparse.Namespace) -> int:
 
 
 def _cmd_encode(args: argparse.Namespace) -> int:
-    codec = _build_codec(args.channels)
+    codec = _build_codec(args.channels, args.ecc_repeat)
     cover = _read_text(args.input)
     result = codec.encode(cover, _payload_from_args(args))
     _write_text(args.output, result.text)
@@ -98,7 +102,7 @@ def _cmd_encode(args: argparse.Namespace) -> int:
 
 
 def _cmd_decode(args: argparse.Namespace) -> int:
-    codec = _build_codec(args.channels)
+    codec = _build_codec(args.channels, args.ecc_repeat)
     result = codec.decode(_read_text(args.input))
     if args.json:
         print(
@@ -111,6 +115,7 @@ def _cmd_decode(args: argparse.Namespace) -> int:
                     "observed_sites": result.observed_sites,
                     "known_symbols": result.known_symbols,
                     "erasures": result.erasures,
+                    "corrected_errors": result.corrected_errors,
                 },
                 indent=2,
             )
@@ -129,6 +134,7 @@ def _cmd_decode(args: argparse.Namespace) -> int:
             f"sites:           {result.observed_sites} observed, "
             f"{result.known_symbols} known, {result.erasures} erased"
         )
+        print(f"corrected errors:{result.corrected_errors:>2}")
     return 0 if result.payload is not None else 1
 
 
@@ -172,6 +178,13 @@ def _build_parser() -> argparse.ArgumentParser:
                 "--channels",
                 default=DEFAULT_CHANNELS,
                 help="comma-separated channel ids",
+            )
+            sub.add_argument(
+                "--ecc-repeat",
+                type=int,
+                default=1,
+                metavar="N",
+                help="repetition-code redundancy (N copies per bit; 1 disables ECC)",
             )
 
     analyze = subparsers.add_parser("analyze", help="report capacity for a text")

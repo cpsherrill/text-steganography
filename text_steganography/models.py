@@ -171,5 +171,6 @@ class DecodeResult:
     observed_sites: int = 0
     known_symbols: int = 0
     erasures: int = 0
+    corrected_errors: int = 0
     observations: tuple[Observation, ...] = ()
     warnings: tuple[str, ...] = ()
