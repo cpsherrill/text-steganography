@@ -28,6 +28,9 @@ Phase 1 is under way and usable. Implemented today:
 - a transport probe that measures which channels actually survive a real
   send-and-return path and labels each Recommended / Conditional / Fragile /
   Unsupported;
+- compatibility profiles: advisory per-channel recommendations for a
+  carrier/transport, either chosen from built-ins or built from a probe
+  measurement (recommendations only; the configuration stays yours);
 - the `inspect` diagnostic and a `tsteg` command-line tool;
 - golden vectors and property-based tests, green on Python 3.9.
 

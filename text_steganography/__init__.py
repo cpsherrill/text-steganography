@@ -25,6 +25,7 @@ from .channels import (
 from .codec import TextSteganographyCodec
 from .inspect import InspectionReport, inspect_text
 from .probe import ChannelSurvival, Probe, ProbeReport, SurvivalLabel, build_probe
+from .profiles import Profile, get_profile, list_profiles, profile_from_probe
 from .config import CodecConfig, FramingConfig, PackingMode, RepertoirePolicy
 from .ecc import ErrorCorrectingCodec, NoErrorCorrection, RepetitionCode
 from .identify import (
@@ -90,6 +91,11 @@ __all__ = [
     "ProbeReport",
     "ChannelSurvival",
     "SurvivalLabel",
+    # compatibility profiles
+    "Profile",
+    "profile_from_probe",
+    "get_profile",
+    "list_profiles",
     # models
     "EmbeddingSite",
     "Observation",
