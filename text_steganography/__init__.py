@@ -26,6 +26,7 @@ from .codec import TextSteganographyCodec
 from .inspect import InspectionReport, inspect_text
 from .config import CodecConfig, FramingConfig, PackingMode, RepertoirePolicy
 from .ecc import ErrorCorrectingCodec, NoErrorCorrection, RepetitionCode
+from .identify import CandidateMatch, FingerprintPreflight, IdentificationResult
 from .errors import (
     CapacityError,
     ConfigError,
@@ -63,6 +64,10 @@ __all__ = [
     "ErrorCorrectingCodec",
     "NoErrorCorrection",
     "RepetitionCode",
+    # identification
+    "IdentificationResult",
+    "CandidateMatch",
+    "FingerprintPreflight",
     # channels
     "BaseChannel",
     "ChannelContext",

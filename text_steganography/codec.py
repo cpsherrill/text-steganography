@@ -9,13 +9,15 @@ checksum fails comes back as ``INVALID`` with no payload rather than as bytes.
 from __future__ import annotations
 
 import math
-from typing import List, Optional
+from typing import List, Optional, Sequence
 
 from .config import CodecConfig
 from .core.bits import bits_to_bytes, bytes_to_bits, int_to_bits
 from .core.planner import build_plan
 from .core.symbol_packing import pack_bits_into_symbols, site_bit_width, sites_consumed
 from .errors import CapacityError
+from .identify.matcher import identify_bits, min_pairwise_distance
+from .identify.models import FingerprintPreflight, IdentificationResult
 from .models import (
     CapacityReport,
     ChannelCapacity,
@@ -150,13 +152,17 @@ class TextSteganographyCodec:
             warnings=tuple(plan.warnings),
         )
 
-    def decode(self, text: str) -> DecodeResult:
-        """Recover a payload from ``text``, or report why it could not."""
+    def _observe_slots(self, text: str):
+        """Read ``text`` into a codeword-bit observation vector.
+
+        Returns (slots, observations, known_symbols, erased_symbols). Each slot
+        is a bit (0/1) or ``None`` for an erased position. This is the common
+        front end for both decoding and candidate identification.
+        """
         slots: List[Optional[int]] = []
         observations: List[Observation] = []
         known = 0
         erasures = 0
-
         for channel in self.config.channels:
             for observation in channel.observe(text):
                 observations.append(observation)
@@ -173,6 +179,15 @@ class TextSteganographyCodec:
                 else:
                     slots.extend([None] * width)
                     erasures += 1
+        return slots, observations, known, erasures
+
+    def _expected_codeword_bits(self, payload: bytes) -> List[int]:
+        """The codeword bits a given payload would encode to under this config."""
+        return self.config.error_correction.encode_bits(bytes_to_bits(frame(payload)))
+
+    def decode(self, text: str) -> DecodeResult:
+        """Recover a payload from ``text``, or report why it could not."""
+        slots, observations, known, erasures = self._observe_slots(text)
 
         common = dict(
             codec_id=self.codec_id,
@@ -262,3 +277,59 @@ class TextSteganographyCodec:
         for channel in self.config.channels:
             text = channel.canonicalize(text)
         return text
+
+    def identify(
+        self, observed_text: str, candidates: Sequence[bytes]
+    ) -> IdentificationResult:
+        """Rank candidate payloads by consistency with a leaked copy.
+
+        This compares the surviving evidence in ``observed_text`` against the
+        codeword each candidate would have produced, and reports which remain
+        consistent. It assumes a full-length text whose sites may have been
+        normalized or flipped; it does not align arbitrary excerpts. It can
+        narrow the source even when ``decode`` cannot recover a payload.
+        """
+        slots, _, _, _ = self._observe_slots(observed_text)
+        candidate_bits = [
+            (payload, self._expected_codeword_bits(payload)) for payload in candidates
+        ]
+        return identify_bits(slots, candidate_bits)
+
+    def preflight(self, cover_text: str, payloads: Sequence[bytes]) -> FingerprintPreflight:
+        """Check a set of fingerprints against one cover before distribution.
+
+        Reports whether every payload fits, whether the resulting codewords are
+        all distinct, and the smallest Hamming distance between any two of them
+        (a rough measure of how much damage a copy can take before two sources
+        become confusable).
+        """
+        capacity = sum(planned.width for planned in build_plan(self.config, cover_text).planned_sites)
+        report = self.analyze(cover_text)
+
+        expected = [self._expected_codeword_bits(payload) for payload in payloads]
+        all_fit = all(len(bits) <= capacity for bits in expected)
+
+        padded = [
+            list(bits) + [0] * (capacity - len(bits))
+            for bits in expected
+            if len(bits) <= capacity
+        ]
+        all_distinct = all_fit and len({tuple(vector) for vector in padded}) == len(padded)
+
+        return FingerprintPreflight(
+            count=len(payloads),
+            capacity_bits=capacity,
+            usable_payload_bytes=report.usable_payload_bytes,
+            all_fit=all_fit,
+            all_distinct=all_distinct,
+            min_pairwise_distance=min_pairwise_distance(padded),
+        )
+
+    def encode_many(self, cover_text: str, payloads: Sequence[bytes]) -> List[EncodeResult]:
+        """Encode one stegotext per payload from the same cover.
+
+        Consider calling :meth:`preflight` first to confirm the whole set fits
+        and stays distinguishable. Each payload is encoded independently, so a
+        payload that does not fit raises :class:`CapacityError`.
+        """
+        return [self.encode(cover_text, payload) for payload in payloads]
