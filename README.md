@@ -19,12 +19,14 @@ Phase 1 is under way and usable. Implemented today:
 - two channels: Unicode spaces and contraction apostrophes;
 - versioned configuration with a stable `codec_id`;
 - power-of-two packing and `length_crc_v1` framing with integrity checks;
+- a pluggable error-correction layer, with a repetition code that corrects
+  bit flips and erasures (the default is still no ECC);
 - the `inspect` diagnostic and a `tsteg` command-line tool;
 - golden vectors and property-based tests, green on Python 3.9.
 
-Not built yet: error correction, partial-observation identification, fragment
-alignment, carrier adapters, and the remaining channels. The full plan and the
-reasoning behind it live in [docs/DESIGN.md](docs/DESIGN.md).
+Not built yet: partial-observation identification, fragment alignment, carrier
+adapters, and the remaining channels. The full plan and the reasoning behind it
+live in [docs/DESIGN.md](docs/DESIGN.md).
 
 ## The core idea
 

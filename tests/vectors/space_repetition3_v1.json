@@ -1,0 +1,36 @@
+{
+  "codec_id": "4d15af770ae1cd73",
+  "config": {
+    "channels": [
+      {
+        "id": "whitespace.unicode_space",
+        "params": {},
+        "version": "1"
+      }
+    ],
+    "error_correction": {
+      "id": "ecc.repetition",
+      "params": {
+        "repeat": 3
+      },
+      "version": "1"
+    },
+    "framing": {
+      "format": "length_crc_v1"
+    },
+    "packing": "power_of_two",
+    "repertoire": {
+      "allow_bidi_controls": false,
+      "allow_cross_script": false,
+      "allow_joiners": false,
+      "scripts": [
+        "Latin"
+      ]
+    },
+    "schema_version": 1
+  },
+  "cover_text": "word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word",
+  "description": "unicode-space channel with repetition(3) over 300 'word's, payload b'847'",
+  "expected_stego": "word word word word\u00a0word\u00a0word\u00a0word word word word\u00a0word\u00a0word\u00a0word word word word word word word\u00a0word\u00a0word\u00a0word\u00a0word\u00a0word\u00a0word word word word\u00a0word\u00a0word\u00a0word word word word\u00a0word\u00a0word\u00a0word word word word\u00a0word\u00a0word\u00a0word word word word word word word word word word word word word word word word word word word word word word word word word word word word\u00a0word\u00a0word\u00a0word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word\u00a0word\u00a0word\u00a0word\u00a0word\u00a0word\u00a0word word word word word word word\u00a0word\u00a0word\u00a0word\u00a0word\u00a0word\u00a0word\u00a0word\u00a0word\u00a0word word word word word word word word word word word word word word word word\u00a0word\u00a0word\u00a0word\u00a0word\u00a0word\u00a0word word word word\u00a0word\u00a0word\u00a0word word word word word word word word word word word word word\u00a0word\u00a0word\u00a0word\u00a0word\u00a0word\u00a0word word word word\u00a0word\u00a0word\u00a0word\u00a0word\u00a0word\u00a0word\u00a0word\u00a0word\u00a0word\u00a0word\u00a0word\u00a0word word word word word word word\u00a0word\u00a0word\u00a0word\u00a0word\u00a0word\u00a0word word word word word word word\u00a0word\u00a0word\u00a0word word word word word word word word word word\u00a0word\u00a0word\u00a0word word word word\u00a0word\u00a0word\u00a0word\u00a0word\u00a0word\u00a0word\u00a0word\u00a0word\u00a0word word word word\u00a0word\u00a0word\u00a0word\u00a0word\u00a0word\u00a0word\u00a0word\u00a0word\u00a0word\u00a0word\u00a0word\u00a0word word word word word word word word word word word word word\u00a0word\u00a0word\u00a0word\u00a0word\u00a0word\u00a0word\u00a0word\u00a0word\u00a0word word word word word word word\u00a0word\u00a0word\u00a0word\u00a0word\u00a0word\u00a0word word word word word word word word word word word word",
+  "payload_hex": "383437"
+}

@@ -25,6 +25,7 @@ from .channels import (
 from .codec import TextSteganographyCodec
 from .inspect import InspectionReport, inspect_text
 from .config import CodecConfig, FramingConfig, PackingMode, RepertoirePolicy
+from .ecc import ErrorCorrectingCodec, NoErrorCorrection, RepetitionCode
 from .errors import (
     CapacityError,
     ConfigError,
@@ -58,6 +59,10 @@ __all__ = [
     "RepertoirePolicy",
     "PackingMode",
     "FramingConfig",
+    # error correction
+    "ErrorCorrectingCodec",
+    "NoErrorCorrection",
+    "RepetitionCode",
     # channels
     "BaseChannel",
     "ChannelContext",
