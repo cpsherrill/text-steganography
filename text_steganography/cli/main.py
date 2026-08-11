@@ -19,6 +19,7 @@ from ..config import CodecConfig
 from ..ecc import NoErrorCorrection, RepetitionCode
 from ..errors import TextSteganographyError
 from ..inspect import inspect_text
+from ..probe import Probe, build_probe
 
 DEFAULT_CHANNELS = "whitespace.unicode_space"
 
@@ -164,6 +165,57 @@ def _cmd_inspect(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_probe_make(args: argparse.Namespace) -> int:
+    codec = _build_codec(args.channels, args.ecc_repeat)
+    probe = build_probe(codec.config)
+    _write_text(args.output, probe.stego)
+    with open(args.save, "w", encoding="utf-8") as handle:
+        json.dump(probe.to_dict(), handle, ensure_ascii=True, indent=2)
+    print(
+        f"probe written; send the sample through the transport, then run "
+        f"'probe-check --probe {args.save}' on the result",
+        file=sys.stderr,
+    )
+    return 0
+
+
+def _cmd_probe_check(args: argparse.Namespace) -> int:
+    with open(args.probe, encoding="utf-8") as handle:
+        probe = Probe.from_dict(json.load(handle))
+    report = probe.evaluate(_read_text(args.input))
+    if args.json:
+        print(
+            json.dumps(
+                {
+                    "overall_survival": report.overall_survival,
+                    "per_channel": [
+                        {
+                            "channel_id": c.channel_id,
+                            "expected_sites": c.expected_sites,
+                            "observed_sites": c.observed_sites,
+                            "matched": c.matched,
+                            "substituted": c.substituted,
+                            "site_delta": c.site_delta,
+                            "survival_rate": c.survival_rate,
+                            "label": c.label.value,
+                        }
+                        for c in report.per_channel
+                    ],
+                },
+                indent=2,
+            )
+        )
+        return 0
+    print(report.summary())
+    for channel in report.per_channel:
+        print(
+            f"  {channel.channel_id}: {channel.matched}/{channel.expected_sites} "
+            f"matched, {channel.substituted} substituted, site delta "
+            f"{channel.site_delta:+d} [{channel.label.value}]"
+        )
+    return 0
+
+
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="tsteg", description="Hide and recover payloads in the entropy of text."
@@ -209,6 +261,29 @@ def _build_parser() -> argparse.ArgumentParser:
     add_common(inspect_cmd, with_channels=False)
     inspect_cmd.add_argument("--json", action="store_true", help="emit JSON")
     inspect_cmd.set_defaults(func=_cmd_inspect)
+
+    probe_make = subparsers.add_parser(
+        "probe-make", help="build a transport-probe sample to send"
+    )
+    probe_make.add_argument(
+        "-c", "--channels", default=DEFAULT_CHANNELS, help="comma-separated channel ids"
+    )
+    probe_make.add_argument("--ecc-repeat", type=int, default=1, metavar="N", help=argparse.SUPPRESS)
+    probe_make.add_argument("-o", "--output", default="-", help="where to write the sample")
+    probe_make.add_argument(
+        "--save", required=True, metavar="FILE", help="where to save the probe metadata"
+    )
+    probe_make.set_defaults(func=_cmd_probe_make)
+
+    probe_check = subparsers.add_parser(
+        "probe-check", help="evaluate returned text against a saved probe"
+    )
+    probe_check.add_argument("-i", "--input", default="-", help="returned text, or - for stdin")
+    probe_check.add_argument(
+        "--probe", required=True, metavar="FILE", help="the probe metadata saved by probe-make"
+    )
+    probe_check.add_argument("--json", action="store_true", help="emit JSON")
+    probe_check.set_defaults(func=_cmd_probe_check)
 
     return parser
 
