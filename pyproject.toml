@@ -39,3 +39,7 @@ Design = "https://github.com/cpsherrill/text-steganography/blob/main/docs/DESIGN
 
 [tool.hatch.build.targets.wheel]
 packages = ["text_steganography"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"

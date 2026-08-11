@@ -9,13 +9,66 @@ one apostrophe code point rather than another, one Unicode space rather than
 another, one canonical-equivalent Unicode sequence rather than another, and
 so on.
 
-This is a scaffold. The design is complete and lives in ``docs/DESIGN.md``;
-implementation has not started. See the README for the planned phases.
-
 Steganography is not encryption. This library hides the presence or
 provenance of a payload. It does not make that payload confidential.
 """
 
+from __future__ import annotations
+
+from .channels import BaseChannel, ChannelContext, register_channel
+from .config import CodecConfig, FramingConfig, PackingMode, RepertoirePolicy
+from .errors import (
+    CapacityError,
+    ConfigError,
+    ConflictError,
+    DecodeError,
+    FramingError,
+    TextSteganographyError,
+)
+from .models import (
+    CapacityReport,
+    ChannelCapacity,
+    ChannelMetadata,
+    DecodeResult,
+    DecodeStatus,
+    EmbeddingSite,
+    EncodeResult,
+    Invariant,
+    Observation,
+    ObservationState,
+    Risk,
+)
+
 __version__ = "0.0.0"
 
-__all__ = ["__version__"]
+__all__ = [
+    "__version__",
+    # configuration
+    "CodecConfig",
+    "RepertoirePolicy",
+    "PackingMode",
+    "FramingConfig",
+    # channels
+    "BaseChannel",
+    "ChannelContext",
+    "register_channel",
+    # models
+    "EmbeddingSite",
+    "Observation",
+    "ObservationState",
+    "ChannelMetadata",
+    "ChannelCapacity",
+    "CapacityReport",
+    "EncodeResult",
+    "DecodeResult",
+    "DecodeStatus",
+    "Invariant",
+    "Risk",
+    # errors
+    "TextSteganographyError",
+    "ConfigError",
+    "CapacityError",
+    "ConflictError",
+    "FramingError",
+    "DecodeError",
+]
