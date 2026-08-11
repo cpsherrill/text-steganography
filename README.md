@@ -21,12 +21,14 @@ Phase 1 is under way and usable. Implemented today:
 - power-of-two packing and `length_crc_v1` framing with integrity checks;
 - a pluggable error-correction layer, with a repetition code that corrects
   bit flips and erasures (the default is still no ECC);
+- candidate identification: trace a leaked copy to one of N known payloads,
+  with a fingerprint preflight (`encode_many`, `preflight`, `identify`);
 - the `inspect` diagnostic and a `tsteg` command-line tool;
 - golden vectors and property-based tests, green on Python 3.9.
 
-Not built yet: partial-observation identification, fragment alignment, carrier
-adapters, and the remaining channels. The full plan and the reasoning behind it
-live in [docs/DESIGN.md](docs/DESIGN.md).
+Not built yet: fragment alignment for arbitrary excerpts, carrier adapters, and
+the remaining channels. The full plan and the reasoning behind it live in
+[docs/DESIGN.md](docs/DESIGN.md).
 
 ## The core idea
 
@@ -109,6 +111,35 @@ print(result.status.value, result.payload)   # success b'recipient-0847'
 
 assert codec.canonicalize(stego) == cover     # invisible: it canonicalizes back
 ```
+
+### Fingerprinting
+
+```python
+from text_steganography import (
+    CodecConfig, TextSteganographyCodec, UnicodeSpaceChannel, RepetitionCode,
+)
+
+codec = TextSteganographyCodec(CodecConfig(
+    channels=[UnicodeSpaceChannel()],
+    error_correction=RepetitionCode(repeat=3),
+))
+cover = " ".join(["word"] * 400)
+recipients = [bytes([n]) for n in range(40)]
+
+# check the whole set fits and stays distinguishable, then hand out copies
+assert codec.preflight(cover, recipients).ok
+copies = codec.encode_many(cover, recipients)
+
+# a copy turns up somewhere; trace it back
+leak = copies[23].text
+result = codec.identify(leak, recipients)
+print(result.unique, result.best().payload)   # True b'\x17'  (recipient 23)
+```
+
+Identification works on a full-length copy whose sites may have been normalized
+or flipped, and can still narrow the source even when a full `decode` fails.
+Tracing an arbitrary short excerpt needs fragment alignment, which is a later
+phase.
 
 ### Command line
 
