@@ -16,12 +16,14 @@ provenance of a payload. It does not make that payload confidential.
 from __future__ import annotations
 
 from .channels import (
+    ApostropheChannel,
     BaseChannel,
     ChannelContext,
     UnicodeSpaceChannel,
     register_channel,
 )
 from .codec import TextSteganographyCodec
+from .inspect import InspectionReport, inspect_text
 from .config import CodecConfig, FramingConfig, PackingMode, RepertoirePolicy
 from .errors import (
     CapacityError,
@@ -61,6 +63,10 @@ __all__ = [
     "ChannelContext",
     "register_channel",
     "UnicodeSpaceChannel",
+    "ApostropheChannel",
+    # inspection
+    "inspect_text",
+    "InspectionReport",
     # models
     "EmbeddingSite",
     "Observation",

@@ -18,6 +18,7 @@ from .base import (
     get_channel_class,
     register_channel,
 )
+from .punctuation import ApostropheChannel
 from .whitespace import UnicodeSpaceChannel
 
 __all__ = [
@@ -27,4 +28,5 @@ __all__ = [
     "get_channel_class",
     "register_channel",
     "UnicodeSpaceChannel",
+    "ApostropheChannel",
 ]
