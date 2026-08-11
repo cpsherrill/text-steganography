@@ -25,12 +25,15 @@ Phase 1 is under way and usable. Implemented today:
   with a fingerprint preflight (`encode_many`, `preflight`, `identify`);
 - fragment alignment: trace a leaked excerpt by locating it in the original
   cover, so only the sites it covers have to survive;
+- a transport probe that measures which channels actually survive a real
+  send-and-return path and labels each Recommended / Conditional / Fragile /
+  Unsupported;
 - the `inspect` diagnostic and a `tsteg` command-line tool;
 - golden vectors and property-based tests, green on Python 3.9.
 
 Not built yet: sequence alignment for excerpts altered by insertion or deletion,
-transport-survival profiles, carrier adapters, and the remaining channels. The
-full plan and the reasoning behind it live in [docs/DESIGN.md](docs/DESIGN.md).
+carrier adapters, and the remaining channels. The full plan and the reasoning
+behind it live in [docs/DESIGN.md](docs/DESIGN.md).
 
 ## The core idea
 
@@ -165,6 +168,12 @@ tsteg decode -i stego.txt
 
 # see which unusual code points a text contains
 tsteg inspect -i stego.txt
+
+# measure what a real transport preserves: make a sample, send it through
+# the transport (email, chat, a CMS), then check what came back
+tsteg probe-make -o sample.txt --save probe.json
+# ... paste sample.txt through the transport, save the result as returned.txt ...
+tsteg probe-check --probe probe.json -i returned.txt
 ```
 
 ## Planned phases

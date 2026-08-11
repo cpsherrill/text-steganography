@@ -24,6 +24,7 @@ from .channels import (
 )
 from .codec import TextSteganographyCodec
 from .inspect import InspectionReport, inspect_text
+from .probe import ChannelSurvival, Probe, ProbeReport, SurvivalLabel, build_probe
 from .config import CodecConfig, FramingConfig, PackingMode, RepertoirePolicy
 from .ecc import ErrorCorrectingCodec, NoErrorCorrection, RepetitionCode
 from .identify import (
@@ -83,6 +84,12 @@ __all__ = [
     # inspection
     "inspect_text",
     "InspectionReport",
+    # transport probe
+    "build_probe",
+    "Probe",
+    "ProbeReport",
+    "ChannelSurvival",
+    "SurvivalLabel",
     # models
     "EmbeddingSite",
     "Observation",
