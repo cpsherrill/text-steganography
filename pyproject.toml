@@ -32,6 +32,9 @@ dependencies = []
 [project.optional-dependencies]
 dev = ["pytest>=7", "hypothesis>=6"]
 
+[project.scripts]
+tsteg = "text_steganography.cli.main:main"
+
 [project.urls]
 Homepage = "https://github.com/cpsherrill/text-steganography"
 Repository = "https://github.com/cpsherrill/text-steganography"
