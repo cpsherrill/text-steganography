@@ -23,12 +23,14 @@ Phase 1 is under way and usable. Implemented today:
   bit flips and erasures (the default is still no ECC);
 - candidate identification: trace a leaked copy to one of N known payloads,
   with a fingerprint preflight (`encode_many`, `preflight`, `identify`);
+- fragment alignment: trace a leaked excerpt by locating it in the original
+  cover, so only the sites it covers have to survive;
 - the `inspect` diagnostic and a `tsteg` command-line tool;
 - golden vectors and property-based tests, green on Python 3.9.
 
-Not built yet: fragment alignment for arbitrary excerpts, carrier adapters, and
-the remaining channels. The full plan and the reasoning behind it live in
-[docs/DESIGN.md](docs/DESIGN.md).
+Not built yet: sequence alignment for excerpts altered by insertion or deletion,
+transport-survival profiles, carrier adapters, and the remaining channels. The
+full plan and the reasoning behind it live in [docs/DESIGN.md](docs/DESIGN.md).
 
 ## The core idea
 
@@ -137,9 +139,17 @@ print(result.unique, result.best().payload)   # True b'\x17'  (recipient 23)
 ```
 
 Identification works on a full-length copy whose sites may have been normalized
-or flipped, and can still narrow the source even when a full `decode` fails.
-Tracing an arbitrary short excerpt needs fragment alignment, which is a later
-phase.
+or flipped, and can still narrow the source even when a full `decode` fails. To
+trace a shorter excerpt, pass the original cover so it can be located first:
+
+```python
+excerpt = leak[40:700]                                   # a fragment of the copy
+result = codec.identify(excerpt, recipients, cover_text=cover)
+```
+
+That handles an excerpt that appears verbatim (after canonicalization) in the
+cover. An excerpt altered by insertion, deletion, or retyping needs sequence
+alignment, which is a later phase.
 
 ### Command line
 

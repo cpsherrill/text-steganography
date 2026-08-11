@@ -54,6 +54,30 @@ class IdentificationResult:
 
 
 @dataclass(frozen=True)
+class AlignmentResult:
+    """The outcome of locating an excerpt within its original cover.
+
+    ``status`` is ``"aligned"`` (a unique location found), ``"not_found"`` (the
+    excerpt does not appear in the cover, so it was retyped, paraphrased, or is
+    from a different document), or ``"ambiguous"`` (it appears in more than one
+    place, so no single mapping is trustworthy). When aligned, ``slots`` is a
+    full-length observation vector over the cover's capacity, with the excerpt's
+    surviving bits placed at their true positions and everything else erased.
+    """
+
+    status: str
+    offset: Optional[int]
+    occurrences: int
+    mapped_sites: int
+    global_capacity: int
+    slots: Optional[Tuple[Optional[int], ...]]
+
+    @property
+    def aligned(self) -> bool:
+        return self.status == "aligned"
+
+
+@dataclass(frozen=True)
 class FingerprintPreflight:
     """A check over a whole set of fingerprints before distribution."""
 
