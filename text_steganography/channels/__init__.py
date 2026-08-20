@@ -19,6 +19,7 @@ from .base import (
     register_channel,
 )
 from .homoglyphs import CyrillicHomoglyphChannel
+from .invisible import ZeroWidthChannel
 from .punctuation import ApostropheChannel
 from .whitespace import UnicodeSpaceChannel
 
@@ -31,4 +32,5 @@ __all__ = [
     "UnicodeSpaceChannel",
     "ApostropheChannel",
     "CyrillicHomoglyphChannel",
+    "ZeroWidthChannel",
 ]

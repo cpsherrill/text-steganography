@@ -59,8 +59,10 @@ class AlignmentResult:
 
     ``status`` is ``"aligned"`` (a unique location found), ``"not_found"`` (the
     excerpt does not appear in the cover, so it was retyped, paraphrased, or is
-    from a different document), or ``"ambiguous"`` (it appears in more than one
-    place, so no single mapping is trustworthy). When aligned, ``slots`` is a
+    from a different document), ``"ambiguous"`` (it appears in more than one
+    place, so no single mapping is trustworthy), or ``"unsupported"`` (a
+    length-changing channel is enabled, so offset-based alignment cannot run).
+    When aligned, ``slots`` is a
     full-length observation vector over the cover's capacity, with the excerpt's
     surviving bits placed at their true positions and everything else erased.
     """

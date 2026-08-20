@@ -21,6 +21,7 @@ from .channels import (
     ChannelContext,
     CyrillicHomoglyphChannel,
     UnicodeSpaceChannel,
+    ZeroWidthChannel,
     register_channel,
 )
 from .carriers import (
@@ -97,6 +98,7 @@ __all__ = [
     "UnicodeSpaceChannel",
     "ApostropheChannel",
     "CyrillicHomoglyphChannel",
+    "ZeroWidthChannel",
     # inspection
     "inspect_text",
     "InspectionReport",
