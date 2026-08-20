@@ -299,6 +299,12 @@ class TextSteganographyCodec:
             bit_offset += planned.width
         global_capacity = bit_offset
 
+        # Excerpt alignment maps by character offset. A channel that inserts or
+        # changes the length of a site shifts every offset after it, so the map
+        # would be wrong. Report that instead of returning a confident lie.
+        if any(not channel.length_preserving for channel in self.config.channels):
+            return AlignmentResult("unsupported", None, 0, 0, global_capacity, None)
+
         canon_cover = self.canonicalize(cover_text)
         canon_excerpt = self.canonicalize(excerpt)
 
