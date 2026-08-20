@@ -13,6 +13,7 @@ from .base import (
     register_carrier,
 )
 from .html import HtmlCarrier
+from .markdown import MarkdownCarrier
 from .plain_text import PLAIN_TEXT_ID, PlainTextCarrier
 from .spans import invert_spans, merge_spans, position_in_spans, site_in_spans
 
@@ -24,6 +25,7 @@ __all__ = [
     "PlainTextCarrier",
     "PLAIN_TEXT_ID",
     "HtmlCarrier",
+    "MarkdownCarrier",
     "invert_spans",
     "merge_spans",
     "position_in_spans",
