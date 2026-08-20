@@ -22,7 +22,13 @@ from .channels import (
     UnicodeSpaceChannel,
     register_channel,
 )
-from .carriers import CarrierAdapter, HtmlCarrier, MarkdownCarrier, PlainTextCarrier
+from .carriers import (
+    CarrierAdapter,
+    HtmlCarrier,
+    MarkdownCarrier,
+    PlainTextCarrier,
+    SourceCodeCarrier,
+)
 from .codec import TextSteganographyCodec
 from .inspect import InspectionReport, inspect_text
 from .probe import ChannelSurvival, Probe, ProbeReport, SurvivalLabel, build_probe
@@ -77,6 +83,7 @@ __all__ = [
     "PlainTextCarrier",
     "HtmlCarrier",
     "MarkdownCarrier",
+    "SourceCodeCarrier",
     # identification
     "IdentificationResult",
     "CandidateMatch",

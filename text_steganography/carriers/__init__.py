@@ -15,6 +15,7 @@ from .base import (
 from .html import HtmlCarrier
 from .markdown import MarkdownCarrier
 from .plain_text import PLAIN_TEXT_ID, PlainTextCarrier
+from .source_code import SourceCodeCarrier
 from .spans import invert_spans, merge_spans, position_in_spans, site_in_spans
 
 __all__ = [
@@ -26,6 +27,7 @@ __all__ = [
     "PLAIN_TEXT_ID",
     "HtmlCarrier",
     "MarkdownCarrier",
+    "SourceCodeCarrier",
     "invert_spans",
     "merge_spans",
     "position_in_spans",

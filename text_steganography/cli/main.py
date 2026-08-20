@@ -15,6 +15,7 @@ from typing import List, Optional
 
 from ..carriers.base import get_carrier_class
 from ..carriers.plain_text import PLAIN_TEXT_ID
+from ..carriers.source_code import SourceCodeCarrier
 from ..channels.base import get_channel_class
 from ..codec import TextSteganographyCodec
 from ..config import CodecConfig
@@ -27,14 +28,20 @@ DEFAULT_CHANNELS = "whitespace.unicode_space"
 
 
 def _build_codec(
-    channels_arg: str, ecc_repeat: int = 1, carrier_id: str = PLAIN_TEXT_ID
+    channels_arg: str,
+    ecc_repeat: int = 1,
+    carrier_id: str = PLAIN_TEXT_ID,
+    carrier_lang: Optional[str] = None,
 ) -> TextSteganographyCodec:
     ids = [part.strip() for part in channels_arg.split(",") if part.strip()]
     if not ids:
         raise TextSteganographyError("no channels specified")
     channels = [get_channel_class(channel_id)() for channel_id in ids]
     error_correction = RepetitionCode(repeat=ecc_repeat) if ecc_repeat > 1 else NoErrorCorrection()
-    carrier = get_carrier_class(carrier_id)()
+    if carrier_id == SourceCodeCarrier.id and carrier_lang:
+        carrier = SourceCodeCarrier.for_language(carrier_lang)
+    else:
+        carrier = get_carrier_class(carrier_id)()
     return TextSteganographyCodec(
         CodecConfig(channels=channels, error_correction=error_correction, carrier=carrier)
     )
@@ -64,7 +71,7 @@ def _payload_from_args(args: argparse.Namespace) -> bytes:
 
 
 def _cmd_analyze(args: argparse.Namespace) -> int:
-    codec = _build_codec(args.channels, args.ecc_repeat, args.carrier)
+    codec = _build_codec(args.channels, args.ecc_repeat, args.carrier, args.carrier_lang)
     report = codec.analyze(_read_text(args.input))
     if args.json:
         payload = {
@@ -94,7 +101,7 @@ def _cmd_analyze(args: argparse.Namespace) -> int:
 
 
 def _cmd_encode(args: argparse.Namespace) -> int:
-    codec = _build_codec(args.channels, args.ecc_repeat, args.carrier)
+    codec = _build_codec(args.channels, args.ecc_repeat, args.carrier, args.carrier_lang)
     cover = _read_text(args.input)
     result = codec.encode(cover, _payload_from_args(args))
     _write_text(args.output, result.text)
@@ -108,7 +115,7 @@ def _cmd_encode(args: argparse.Namespace) -> int:
 
 
 def _cmd_decode(args: argparse.Namespace) -> int:
-    codec = _build_codec(args.channels, args.ecc_repeat, args.carrier)
+    codec = _build_codec(args.channels, args.ecc_repeat, args.carrier, args.carrier_lang)
     result = codec.decode(_read_text(args.input))
     if args.json:
         print(
@@ -171,7 +178,7 @@ def _cmd_inspect(args: argparse.Namespace) -> int:
 
 
 def _cmd_probe_make(args: argparse.Namespace) -> int:
-    codec = _build_codec(args.channels, args.ecc_repeat, args.carrier)
+    codec = _build_codec(args.channels, args.ecc_repeat, args.carrier, args.carrier_lang)
     probe = build_probe(codec.config)
     _write_text(args.output, probe.stego)
     with open(args.save, "w", encoding="utf-8") as handle:
@@ -249,6 +256,12 @@ def _build_parser() -> argparse.ArgumentParser:
                 metavar="ID",
                 help="carrier adapter id (e.g. carrier.html); default carrier.plain_text",
             )
+            sub.add_argument(
+                "--carrier-lang",
+                default=None,
+                metavar="LANG",
+                help="language for carrier.source_code (python, c, javascript)",
+            )
 
     analyze = subparsers.add_parser("analyze", help="report capacity for a text")
     add_common(analyze)
@@ -281,6 +294,7 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     probe_make.add_argument("--ecc-repeat", type=int, default=1, metavar="N", help=argparse.SUPPRESS)
     probe_make.add_argument("--carrier", default=PLAIN_TEXT_ID, metavar="ID", help=argparse.SUPPRESS)
+    probe_make.add_argument("--carrier-lang", default=None, metavar="LANG", help=argparse.SUPPRESS)
     probe_make.add_argument("-o", "--output", default="-", help="where to write the sample")
     probe_make.add_argument(
         "--save", required=True, metavar="FILE", help="where to save the probe metadata"
