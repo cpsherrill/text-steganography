@@ -18,6 +18,7 @@ from __future__ import annotations
 from .channels import (
     ApostropheChannel,
     BaseChannel,
+    CanonicalUnicodeChannel,
     ChannelContext,
     CyrillicHomoglyphChannel,
     UnicodeSpaceChannel,
@@ -99,6 +100,7 @@ __all__ = [
     "ApostropheChannel",
     "CyrillicHomoglyphChannel",
     "ZeroWidthChannel",
+    "CanonicalUnicodeChannel",
     # inspection
     "inspect_text",
     "InspectionReport",

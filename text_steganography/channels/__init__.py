@@ -21,6 +21,7 @@ from .base import (
 from .homoglyphs import CyrillicHomoglyphChannel
 from .invisible import ZeroWidthChannel
 from .punctuation import ApostropheChannel
+from .unicode_normalization import CanonicalUnicodeChannel
 from .whitespace import UnicodeSpaceChannel
 
 __all__ = [
@@ -33,4 +34,5 @@ __all__ = [
     "ApostropheChannel",
     "CyrillicHomoglyphChannel",
     "ZeroWidthChannel",
+    "CanonicalUnicodeChannel",
 ]
