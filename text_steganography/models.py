@@ -96,6 +96,8 @@ class Observation:
     possible_symbols: tuple[int, ...] = ()
     radix: int = 0
     raw: str = ""
+    start: int = -1
+    end: int = -1
 
 
 @dataclass(frozen=True)

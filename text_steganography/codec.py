@@ -11,6 +11,7 @@ from __future__ import annotations
 import math
 from typing import List, Optional, Sequence
 
+from .carriers.spans import position_in_spans
 from .config import CodecConfig
 from .core.bits import bits_to_bytes, bytes_to_bits, int_to_bits
 from .core.planner import build_plan
@@ -159,12 +160,15 @@ class TextSteganographyCodec:
         is a bit (0/1) or ``None`` for an erased position. This is the common
         front end for both decoding and candidate identification.
         """
+        spans = self.config.carrier.safe_spans(text)
         slots: List[Optional[int]] = []
         observations: List[Observation] = []
         known = 0
         erasures = 0
         for channel in self.config.channels:
             for observation in channel.observe(text):
+                if not position_in_spans(observation.start, spans):
+                    continue
                 observations.append(observation)
                 width = site_bit_width(observation.radix)
                 if width == 0:

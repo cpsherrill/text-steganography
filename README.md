@@ -31,12 +31,14 @@ Phase 1 is under way and usable. Implemented today:
 - compatibility profiles: advisory per-channel recommendations for a
   carrier/transport, either chosen from built-ins or built from a probe
   measurement (recommendations only; the configuration stays yours);
+- carrier adapters: embed only in a document's safe text, never in tags,
+  attributes, URLs, code, or entities (plain-text and HTML so far);
 - the `inspect` diagnostic and a `tsteg` command-line tool;
 - golden vectors and property-based tests, green on Python 3.9.
 
-Not built yet: sequence alignment for excerpts altered by insertion or deletion,
-carrier adapters, and the remaining channels. The full plan and the reasoning
-behind it live in [docs/DESIGN.md](docs/DESIGN.md).
+Not built yet: Markdown and source-code carriers, sequence alignment for
+excerpts altered by insertion or deletion, and the remaining channels. The full
+plan and the reasoning behind it live in [docs/DESIGN.md](docs/DESIGN.md).
 
 ## The core idea
 

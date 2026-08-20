@@ -11,6 +11,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, List
 
+from ..carriers.spans import site_in_spans
 from ..errors import ConflictError
 from ..models import EmbeddingSite
 from .site_ordering import PlannedSite, order_sites
@@ -45,11 +46,21 @@ def _detect_conflicts(sites: List[EmbeddingSite]) -> None:
 
 
 def build_plan(config: "CodecConfig", text: str) -> EmbeddingPlan:
-    """Discover and order every site for ``text`` under ``config``."""
+    """Discover and order every site for ``text`` under ``config``.
+
+    Sites are restricted to the carrier's safe spans, so channels never touch a
+    tag, an attribute, a URL, or code. The plain-text carrier reports the whole
+    document, leaving discovery unrestricted.
+    """
+    spans = config.carrier.safe_spans(text)
     per_channel: List[List[EmbeddingSite]] = []
     all_sites: List[EmbeddingSite] = []
     for channel in config.channels:
-        sites = list(channel.discover_sites(text))
+        sites = [
+            site
+            for site in channel.discover_sites(text)
+            if site_in_spans(site.start, site.end, spans)
+        ]
         per_channel.append(sites)
         all_sites.extend(sites)
     _detect_conflicts(all_sites)
