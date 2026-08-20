@@ -41,6 +41,10 @@ class BaseChannel(ABC):
 
     id: str = ""
     version: str = ""
+    # Whether encoding preserves character offsets (variant lengths are equal).
+    # False for channels that insert or change the length of a site, which the
+    # offset-based excerpt alignment cannot follow.
+    length_preserving: bool = True
 
     @abstractmethod
     def discover_sites(
