@@ -19,6 +19,7 @@ from .channels import (
     ApostropheChannel,
     BaseChannel,
     ChannelContext,
+    CyrillicHomoglyphChannel,
     UnicodeSpaceChannel,
     register_channel,
 )
@@ -95,6 +96,7 @@ __all__ = [
     "register_channel",
     "UnicodeSpaceChannel",
     "ApostropheChannel",
+    "CyrillicHomoglyphChannel",
     # inspection
     "inspect_text",
     "InspectionReport",
