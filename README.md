@@ -31,15 +31,16 @@ Phase 1 is under way and usable. Implemented today:
 - compatibility profiles: advisory per-channel recommendations for a
   carrier/transport, either chosen from built-ins or built from a probe
   measurement (recommendations only; the configuration stays yours);
-- carrier adapters: embed only in a document's safe text, never in tags,
-  attributes, URLs, code fences, inline code, or entities (plain-text, HTML,
-  and Markdown so far);
+- carrier adapters keep embedding out of a document's structure: never a tag,
+  attribute, URL, code fence, inline code, entity, and in source code nothing
+  but comments (plain-text, HTML, Markdown, and source-code carriers);
 - the `inspect` diagnostic and a `tsteg` command-line tool;
 - golden vectors and property-based tests, green on Python 3.9.
 
-Not built yet: source-code carriers, sequence alignment for excerpts altered by
-insertion or deletion, and the remaining channels. The full plan and the
-reasoning behind it live in [docs/DESIGN.md](docs/DESIGN.md).
+Not built yet: sequence alignment for excerpts altered by insertion or deletion,
+mixed-radix packing, and the remaining channels (canonical-Unicode, zero-width,
+homoglyphs). The full plan and the reasoning behind it live in
+[docs/DESIGN.md](docs/DESIGN.md).
 
 ## The core idea
 
@@ -180,6 +181,10 @@ tsteg inspect -i stego.txt
 tsteg probe-make -o sample.txt --save probe.json
 # ... paste sample.txt through the transport, save the result as returned.txt ...
 tsteg probe-check --probe probe.json -i returned.txt
+
+# fingerprint source code in its comments only, leaving behavior untouched
+tsteg encode --carrier carrier.source_code --carrier-lang python \
+  -i app.py -o app.marked.py --text "recipient-0847"
 ```
 
 ## Planned phases
