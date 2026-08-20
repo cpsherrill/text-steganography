@@ -14,6 +14,8 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Dict, List
 
+from .carriers import CarrierAdapter, PlainTextCarrier, build_carrier
+from .carriers.plain_text import PLAIN_TEXT_ID
 from .channels.base import BaseChannel, build_channel
 from .ecc import ErrorCorrectingCodec, NoErrorCorrection, build_ecc
 
@@ -81,6 +83,7 @@ class CodecConfig:
     packing: PackingMode = PackingMode.POWER_OF_TWO
     framing: FramingConfig = field(default_factory=FramingConfig)
     error_correction: ErrorCorrectingCodec = field(default_factory=NoErrorCorrection)
+    carrier: CarrierAdapter = field(default_factory=PlainTextCarrier)
     schema_version: int = SCHEMA_VERSION
 
     def to_dict(self) -> Dict[str, Any]:
@@ -102,6 +105,14 @@ class CodecConfig:
                 "id": self.error_correction.id,
                 "version": self.error_correction.version,
                 "params": self.error_correction.params(),
+            }
+        # The plain-text carrier is the default. Omitting it keeps a
+        # configuration serializing exactly as it did before carriers existed.
+        if self.carrier.id != PLAIN_TEXT_ID:
+            data["carrier"] = {
+                "id": self.carrier.id,
+                "version": self.carrier.version,
+                "params": self.carrier.params(),
             }
         return data
 
@@ -130,11 +141,19 @@ class CodecConfig:
             )
         else:
             error_correction = NoErrorCorrection()
+        carrier_data = data.get("carrier")
+        if carrier_data:
+            carrier: CarrierAdapter = build_carrier(
+                carrier_data["id"], carrier_data.get("version", ""), carrier_data.get("params", {})
+            )
+        else:
+            carrier = PlainTextCarrier()
         return cls(
             channels=channels,
             repertoire=RepertoirePolicy.from_dict(data.get("repertoire", {})),
             packing=PackingMode(data.get("packing", PackingMode.POWER_OF_TWO.value)),
             framing=FramingConfig.from_dict(data.get("framing", {})),
             error_correction=error_correction,
+            carrier=carrier,
             schema_version=int(data.get("schema_version", SCHEMA_VERSION)),
         )

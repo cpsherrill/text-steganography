@@ -81,6 +81,8 @@ class SingleCharSubstitutionChannel(BaseChannel):
                         symbol=symbol,
                         radix=len(self.variants),
                         raw=char,
+                        start=i,
+                        end=i + 1,
                     )
                 )
                 ordinal += 1
