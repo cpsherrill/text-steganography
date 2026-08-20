@@ -16,7 +16,9 @@ different, and the difference carries the payload.
 Phase 1 is under way and usable. Implemented today:
 
 - the `analyze` / `encode` / `decode` / `canonicalize` workflow;
-- two channels: Unicode spaces and contraction apostrophes;
+- five channels: Unicode spaces, contraction apostrophes, cross-script
+  homoglyphs, zero-width joiners, and canonical-Unicode composition (the last
+  two change length, so excerpt alignment is refused while they are enabled);
 - versioned configuration with a stable `codec_id`;
 - power-of-two packing and `length_crc_v1` framing with integrity checks;
 - a pluggable error-correction layer, with a repetition code that corrects
@@ -38,9 +40,8 @@ Phase 1 is under way and usable. Implemented today:
 - golden vectors and property-based tests, green on Python 3.9.
 
 Not built yet: sequence alignment for excerpts altered by insertion or deletion,
-mixed-radix packing, and the remaining channels (canonical-Unicode, zero-width,
-homoglyphs). The full plan and the reasoning behind it live in
-[docs/DESIGN.md](docs/DESIGN.md).
+mixed-radix packing, keyed placement, and collusion-resistant fingerprint codes.
+The full plan and the reasoning behind it live in [docs/DESIGN.md](docs/DESIGN.md).
 
 ## The core idea
 
