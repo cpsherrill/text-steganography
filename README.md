@@ -51,8 +51,8 @@ for runnable demonstrations. Implemented today:
 - GitHub Actions configuration for tests, coverage, and distribution checks
   ([merged-main CI passed](https://github.com/cpsherrill/text-steganography/actions/runs/35893725214)).
 
-Locally verified on Python 3.9 and 3.11: **486 passing tests, no expected failures**.
-Python 3.9 combined statement/branch coverage is **94.16%**. Tests include fixed-block ECC boundaries and damaged input, every
+Locally verified on Python 3.9 and 3.11: **494 passing tests, no expected failures**.
+Python 3.9 combined statement/branch coverage is **94.19%**. Tests include fixed-block ECC boundaries and damaged input, every
 canonical Unicode decomposition pair in the local runtime, generated Unicode
 covers, compatible channel combinations, and protected document regions.
 Passing tests do not establish safety for arbitrary document extensions or
@@ -66,6 +66,20 @@ See [the changelog](CHANGELOG.md), [readiness follow-up](docs/READINESS.md),
 and [realistic-use measurements](docs/REALISTIC_VALIDATION.md). Large CLI JSON
 capacity counts are nullable and have an exact exponent; Markdown carrier 3
 protects multiline reference definitions.
+
+## Capacity counts
+
+“Distinct payloads” means the number of byte strings at the **maximum usable
+payload length**: `2^(usable_payload_bits)`. It does not sum all shorter lengths
+or measure how many recipients remain distinguishable after transport damage.
+No frame fitting means zero possibilities; an empty frame fitting means one.
+
+The API stores `report.max_distinct_payloads_log2`; use `report.to_dict()` for
+JSON-safe serialization and `report.max_distinct_payloads_display` for compact
+text. `report.max_distinct_payloads` computes the exact integer for arithmetic;
+explicitly formatting that huge integer remains subject to Python's limits.
+See [the output contract](docs/READINESS.md#capacity-output-contract) for zero,
+empty-payload, nullable-count, and dataclass-schema details.
 
 ## The core idea
 

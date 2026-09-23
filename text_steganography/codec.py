@@ -100,11 +100,11 @@ class TextSteganographyCodec:
         if message_capacity_bits < _TOTAL_OVERHEAD_BITS:
             usable_bytes = 0
             usable_bits = 0
-            max_payloads = 0
+            max_payloads_log2 = None
         else:
             usable_bytes = min(MAX_PAYLOAD_BYTES, (message_capacity_bits - _TOTAL_OVERHEAD_BITS) // 8)
             usable_bits = usable_bytes * 8
-            max_payloads = 1 << usable_bits
+            max_payloads_log2 = usable_bits
             # Cost of the largest usable frame, including final-block padding.
             frame_bits = _TOTAL_OVERHEAD_BITS + usable_bits
             ecc_overhead_bits = ecc.codeword_len(frame_bits) - frame_bits
@@ -119,7 +119,7 @@ class TextSteganographyCodec:
             ecc_overhead_bits=ecc_overhead_bits,
             usable_payload_bits=usable_bits,
             usable_payload_bytes=usable_bytes,
-            max_distinct_payloads=max_payloads,
+            max_distinct_payloads_log2=max_payloads_log2,
             warnings=tuple(plan.warnings),
         )
 

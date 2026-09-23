@@ -7,9 +7,11 @@
 - Resolve assessment findings F1–F6: Unicode site stability, protected carrier
   regions, configuration enforcement, evidence-aware identification, carrier-aware
   probes, and fixed-block ECC framing/padding.
-- Keep large CLI capacity reports bounded. Human-readable output uses `2^N` for
+- Keep API report logging/serialization and CLI capacity reports bounded. Human-readable output uses `2^N` for
   large counts; JSON includes an exact `max_distinct_payloads_log2` exponent and
   uses `null` for counts exceeding the interoperable JSON integer range.
+- Run push CI only on main, retaining PR and manual runs without duplicate
+  branch-push jobs.
 - Protect multiline Markdown reference definitions, including continuation titles.
 
 ### Added
@@ -33,7 +35,9 @@
 - Large CLI JSON capacity counts are now nullable; see
   [the output contract](docs/READINESS.md#capacity-output-contract).
 - Existing plain-text identity/repetition golden vectors and codec IDs remain
-  unchanged. The Python capacity API still exposes an exact integer count.
+  unchanged. The exact integer count is now a computed property; the report
+  constructor and `dataclasses.asdict` schema store `max_distinct_payloads_log2`
+  instead. `to_dict()` provides safe numeric counts plus the exponent.
 
 The package remains `0.0.0`; this is not a published release. See
 [hardening](docs/HARDENING.md) and [readiness](docs/READINESS.md) for details.

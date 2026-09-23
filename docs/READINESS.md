@@ -17,7 +17,18 @@ The fix leaves the interpreter's protection enabled.
   above that bound. This avoids rounding in consumers using IEEE-754 numbers.
 - JSON adds `max_distinct_payloads_log2`: an integer N for the exact count `2^N`.
   It is `null` when no frame fits, and 0 when only an empty payload fits.
-- The Python API's `CapacityReport.max_distinct_payloads` remains an exact integer.
+- `CapacityReport` stores `max_distinct_payloads_log2`, so `str(report)`,
+  `repr(report)`, logging, and `json.dumps(dataclasses.asdict(report))` avoid huge
+  integer formatting. `asdict` includes the exponent, not a numeric count.
+- `report.to_dict()` supplies a JSON-safe report with the same nullable count
+  convention used by the CLI. `report.max_distinct_payloads_display` supplies
+  bounded text. The CLI delegates to these shared API representations.
+- `report.max_distinct_payloads` remains an exact integer, computed on access
+  for arithmetic. Explicitly converting that integer to decimal or JSON can
+  still exceed Python's limit; serialize the report with `to_dict()` instead.
+- Direct report construction now takes `max_distinct_payloads_log2` instead of
+  `max_distinct_payloads`. This changes the unreleased dataclass constructor and
+  `asdict` schema; existing reads of the exact-count attribute still work.
 - These counts describe payloads at the maximum usable byte length, not the sum
   of all possible lengths and not a measured number of distinguishable recipients.
 
@@ -31,8 +42,8 @@ Examples:
 | 1,991 payload bytes | null | 15928 | 2^15928 |
 
 JSON consumers must handle the nullable count and use the exponent when needed.
-Tests exercise both output formats and an interpreter limited to 640 decimal
-digits. No global interpreter settings are changed.
+Tests exercise API logging/serialization and both CLI output formats under
+the 640- and 4,300-digit interpreter limits. No global interpreter settings are changed.
 
 ## Additional Markdown correction
 
@@ -49,8 +60,8 @@ unchanged by this follow-up.
 
 ## Verification
 
-486 tests pass locally on Python 3.9.6 and 3.11. Coverage on Python 3.9.6 is
-**94.16% combined**. The 90% CI floor remains in place. Independent document
+494 tests pass locally on Python 3.9.6 and 3.11. Coverage on Python 3.9.6 is
+**94.19% combined**. The 90% CI floor remains in place. Independent document
 checks use html5lib and markdown-it-py as development-only dependencies; the
 runtime still has no dependencies. Source/wheel builds and an isolated Python 3.11
 wheel install pass both CLI entry points, all three examples, and the strict-limit
