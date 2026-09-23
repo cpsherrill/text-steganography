@@ -37,6 +37,7 @@ class IdentificationResult:
     candidates_total: int
     consistent: Tuple[CandidateMatch, ...]
     ranked: Tuple[CandidateMatch, ...]
+    alignment: Optional[AlignmentResult] = None
 
     @property
     def ambiguity(self) -> int:
@@ -45,12 +46,29 @@ class IdentificationResult:
 
     @property
     def unique(self) -> bool:
-        """True when exactly one candidate is consistent."""
-        return len(self.consistent) == 1
+        """One consistent candidate supported by at least one observed bit.
+
+        This is not a calibrated confidence level or proof of provenance.
+        """
+        return self.known_bits > 0 and len(self.consistent) == 1
+
+    @property
+    def status(self) -> str:
+        if self.alignment is not None and not self.alignment.aligned:
+            return self.alignment.status
+        if self.known_bits == 0:
+            return "insufficient_evidence"
+        if not self.consistent:
+            return "contradictory"
+        return "unique" if self.unique else "ambiguous"
 
     def best(self) -> Optional[CandidateMatch]:
-        """The closest candidate by distance, or None if there were none."""
-        return self.ranked[0] if self.ranked else None
+        """Closest candidate, or None without evidence/candidates.
+
+        Even with evidence, a closest candidate may contradict the observation;
+        inspect ``consistent`` and ``status`` before making an attribution.
+        """
+        return self.ranked[0] if self.known_bits > 0 and self.ranked else None
 
 
 @dataclass(frozen=True)

@@ -13,7 +13,16 @@ different, and the difference carries the payload.
 
 ## Status
 
-Phase 1 is under way and usable. Implemented today:
+**Unreleased alpha (`0.0.0`), hardened September 16, 2026.** The core workflow
+and substantial portions of phases 2–4 are implemented. Assessment findings
+F1–F6 are addressed, including generic ECC block/framing integration.
+See [the hardening notes](docs/HARDENING.md) for fixes, explicit supported
+boundaries, and configuration migration, and [the ECC contract](docs/ECC_ADAPTER_CONTRACT.md)
+for the implemented block and padding rules.
+
+See the [implementation assessment](docs/ASSESSMENT.md) for architecture,
+measured coverage, and reproducible defects, and [example workflows](examples/README.md)
+for runnable demonstrations. Implemented today:
 
 - the `analyze` / `encode` / `decode` / `canonicalize` workflow;
 - five channels: Unicode spaces, contraction apostrophes, cross-script
@@ -29,15 +38,26 @@ Phase 1 is under way and usable. Implemented today:
   cover, so only the sites it covers have to survive;
 - a transport probe that measures which channels actually survive a real
   send-and-return path and labels each Recommended / Conditional / Fragile /
-  Unsupported;
+  Unsupported (or Untested when site counts no longer align); protected
+  carrier regions are excluded from the measurement;
 - compatibility profiles: advisory per-channel recommendations for a
   carrier/transport, either chosen from built-ins or built from a probe
   measurement (recommendations only; the configuration stays yours);
-- carrier adapters keep embedding out of a document's structure: never a tag,
-  attribute, URL, code fence, inline code, entity, and in source code nothing
-  but comments (plain-text, HTML, Markdown, and source-code carriers);
+- carrier adapters for plain text, HTML, Markdown, and source code with protected
+  region tests, HTML parsing, and Python tokenization; unsupported source syntax
+  fails explicitly (see the hardening notes for the supported subset);
 - the `inspect` diagnostic and a `tsteg` command-line tool;
-- golden vectors and property-based tests, green on Python 3.9.
+- golden vectors, property-based tests, and runnable workflow tests;
+- GitHub Actions configuration for tests, coverage, and distribution checks
+  (hosted results become available after the workflow is pushed).
+
+Locally verified on Python 3.9 and 3.11: **453 passing tests, no expected failures**.
+Python 3.9 coverage is **94.50% statements**, **88.48% branches**, and **93.20%
+combined**. Tests include fixed-block ECC boundaries and damaged input, every
+canonical Unicode decomposition pair in the local runtime, generated Unicode
+covers, compatible channel combinations, and protected document regions.
+Passing tests do not establish safety for arbitrary document extensions or
+real-world transport paths.
 
 Not built yet: sequence alignment for excerpts altered by insertion or deletion,
 mixed-radix packing, keyed placement, and collusion-resistant fingerprint codes.
@@ -81,9 +101,17 @@ meant to be first-class, not afterthoughts.
 Some channels can break exact search, copy and paste, sorting, screen-reader
 behavior, source-code identifiers, or markup, and some trip security filters
 for mixed-script text. Risky channels (cross-script homoglyphs, bidirectional
-controls, semantically active joiners) are opt-in by design, and diagnostics
-report exactly which characters were introduced. The threat models and the
-full list of caveats are in the design document.
+controls, semantically active joiners) require explicit policy permission.
+Use `RepertoirePolicy(allow_cross_script=True)` for homoglyphs or
+`RepertoirePolicy(allow_joiners=True)` for zero-width insertion; CLI equivalents
+are `--allow-cross-script` and `--allow-joiners`. Warnings are returned by the API
+and shown by the CLI. The `scripts` field describes expected scripts; it does
+not validate the Unicode Script property of the cover text.
+
+Canonical-Unicode encoding cannot be combined with apostrophes, homoglyphs, or
+zero-width insertion because those combinations do not preserve discovery.
+`inspect` reports notable code points. Read [the hardening notes](docs/HARDENING.md)
+before working with structured documents or saved older configurations.
 
 ## Install
 
@@ -188,9 +216,26 @@ tsteg encode --carrier carrier.source_code --carrier-lang python \
   -i app.py -o app.marked.py --text "recipient-0847"
 ```
 
+## Development and testing
+
+```sh
+python -m pip install -e '.[dev]'
+python -m pytest --cov --cov-report=term-missing
+python -m build
+```
+
+The full-suite coverage gate is 90% combined statement/branch coverage.
+All six assessment findings have passing regression tests.
+The [workflow](.github/workflows/tests.yml) also exercises examples and verifies
+an installed wheel outside the checkout. See the [assessment](docs/ASSESSMENT.md)
+for what these checks do and do not establish.
+
 ## Planned phases
 
-The design lays out a staged build. In short:
+The design is a roadmap, not a completion checklist. The core is implemented;
+phases 2–4 have usable subsets, with explicit limitations documented in the hardening notes.
+Interleaving, mature external ECC adapters, chunked fingerprints, and extensive
+measured transport profiles remain outstanding alongside phase 5. In short:
 
 1. **Unicode-string core:** versioned config, channel protocol, deterministic
    site planning, capacity analysis, power-of-two packing, framed byte

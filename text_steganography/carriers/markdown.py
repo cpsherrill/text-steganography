@@ -13,10 +13,10 @@ structure or meaning:
   into a no-break space would stop it from being a heading or a list;
 - lines indented four or more spaces, which Markdown reads as code.
 
-This is a conservative scanner, not a CommonMark parser. When unsure it marks a
-region unsafe, which costs capacity but never corrupts the document. Embedding
-is length-preserving, so the same scan yields the same spans for cover and
-stegotext.
+This is a conservative subset scanner, not a full CommonMark renderer. HTML
+regions and character references use the shared HTML tokenizer. Supported
+fixtures are tested for protected-region preservation; arbitrary Markdown
+extensions are not supported.
 """
 
 from __future__ import annotations
@@ -26,6 +26,7 @@ from typing import List, Set, Tuple
 
 from .base import CarrierAdapter, Span, register_carrier
 from .spans import invert_spans
+from .html import HtmlCarrier
 
 _FENCE_RE = re.compile(r"^\s{0,3}(`{3,}|~{3,})")
 _REFDEF_RE = re.compile(r"^\s{0,3}\[[^\]]+\]:")
@@ -36,7 +37,7 @@ _BLOCK_PREFIX_RE = re.compile(r"^\s*(?:(?:#{1,6}|>|[-+*]|\d{1,9}[.)])\s+)*")
 @register_carrier
 class MarkdownCarrier(CarrierAdapter):
     id = "carrier.markdown"
-    version = "1"
+    version = "2"
 
     def safe_spans(self, document: str) -> List[Span]:
         n = len(document)
@@ -44,6 +45,9 @@ class MarkdownCarrier(CarrierAdapter):
         fenced_lines, fenced_ranges = self._fenced(document, lines)
 
         unsafe: List[Span] = list(fenced_ranges)
+        # Reuse HTML's tokenizer to protect entities, quoted attributes,
+        # comments, declarations, and raw script/style content in Markdown.
+        unsafe.extend(invert_spans(HtmlCarrier().safe_spans(document), n))
         for index, (line_start, line_end) in enumerate(lines):
             if index in fenced_lines:
                 continue
@@ -109,17 +113,35 @@ class MarkdownCarrier(CarrierAdapter):
                 i = skip
                 continue
             char = document[i]
+            if char == "\\":
+                out.append((i, min(i + 2, n)))
+                i += 2
+                continue
+            if char == "[":
+                # Protect labels too: shortcut/collapsed/reference links use
+                # their spelling to select a destination in another line.
+                j, depth = i + 1, 1
+                while j < n and depth:
+                    if document[j] == "\\":
+                        j += 2
+                        continue
+                    if document[j] == "[":
+                        depth += 1
+                    elif document[j] == "]":
+                        depth -= 1
+                    j += 1
+                out.append((i, j))
+                i = j - 1 if depth == 0 else j
+                continue
             if char == "`":
                 run = 1
                 while i + run < n and document[i + run] == "`":
                     run += 1
                 marker = "`" * run
-                close = document.find(marker, i + run)
-                if close != -1:
-                    out.append((i, close + run))
-                    i = close + run
-                    continue
-                i += run
+                closing = re.search(r"(?<!`)`{" + str(run) + r"}(?!`)", document[i + run:])
+                end = i + run + closing.end() if closing else n
+                out.append((i, end))
+                i = end
                 continue
             if char == "<":
                 close = document.find(">", i + 1)
@@ -130,12 +152,24 @@ class MarkdownCarrier(CarrierAdapter):
                 i += 1
                 continue
             if char == "]" and i + 1 < n and document[i + 1] == "(":
-                close = document.find(")", i + 2)
-                if close != -1:
-                    out.append((i + 1, close + 1))
-                    i = close + 1
-                    continue
-                i += 1
+                j, depth, quote = i + 2, 1, None
+                while j < n and depth:
+                    token = document[j]
+                    if token == "\\":
+                        j += 2
+                        continue
+                    if quote:
+                        if token == quote:
+                            quote = None
+                    elif token in ("'", '"'):
+                        quote = token
+                    elif token == "(":
+                        depth += 1
+                    elif token == ")":
+                        depth -= 1
+                    j += 1
+                out.append((i + 1, j))
+                i = j
                 continue
             i += 1
         return out

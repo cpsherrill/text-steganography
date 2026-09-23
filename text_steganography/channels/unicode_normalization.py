@@ -7,9 +7,10 @@ same. This channel encodes a bit at each such character by choosing the
 composed form (zero) or the decomposed form (one).
 
 Only true canonical equivalence is used (NFC and NFD round-trip), never
-compatibility equivalence, which can change meaning. The channel assumes the
-cover is in composed (NFC) form, which nearly all text is; its canonical form is
-the composed one.
+compatibility equivalence, which can change meaning. Both composed and fully
+decomposed normalization units are recognized, including Hangul. Units that
+cannot be represented by one composed character are left alone. The canonical
+form of each eligible site is its composed form.
 
 The decomposed form is longer than the composed one, so this channel is not
 length-preserving. The main pipeline handles that; excerpt alignment does not,
@@ -41,36 +42,31 @@ _Site = Tuple[int, int, Tuple[str, str], int]
 @register_channel
 class CanonicalUnicodeChannel(BaseChannel):
     id = "unicode.canonical"
-    version = "1"
+    version = "2"
     length_preserving = False
 
     def _scan(self, text: str) -> Iterator[_Site]:
-        n = len(text)
+        # A normalization unit includes trailing combining marks and adjacent
+        # starters that compose (notably Hangul L/V/T Jamo). Never encode a
+        # prefix of a larger unit: decomposition would change its boundaries.
         i = 0
-        while i < n:
-            char = text[i]
-            decomposed = unicodedata.normalize("NFD", char)
-            if len(decomposed) > 1 and unicodedata.normalize("NFC", decomposed) == char:
-                # a precomposed character sitting in composed form (symbol 0)
-                yield (i, i + 1, (char, decomposed), 0)
-                i += 1
-                continue
-            if (
-                unicodedata.combining(char) == 0
-                and i + 1 < n
-                and unicodedata.combining(text[i + 1]) > 0
-            ):
-                j = i + 1
-                while j < n and unicodedata.combining(text[j]) > 0:
+        while i < len(text):
+            j = i + 1
+            sequence = text[i:j]
+            while j < len(text):
+                extended = sequence + text[j]
+                if (unicodedata.combining(text[j]) != 0
+                        or len(unicodedata.normalize("NFC", extended)) == 1):
+                    sequence = extended
                     j += 1
-                sequence = text[i:j]
-                composed = unicodedata.normalize("NFC", sequence)
-                if len(composed) == 1 and unicodedata.normalize("NFD", composed) == sequence:
-                    # a base plus combining marks in decomposed form (symbol 1)
-                    yield (i, j, (composed, sequence), 1)
-                    i = j
-                    continue
-            i += 1
+                else:
+                    break
+            composed = unicodedata.normalize("NFC", sequence)
+            decomposed = unicodedata.normalize("NFD", sequence)
+            if (len(composed) == 1 and len(decomposed) > 1
+                    and sequence in (composed, decomposed)):
+                yield (i, j, (composed, decomposed), int(sequence == decomposed))
+            i = j
 
     def discover_sites(
         self, text: str, context: Optional[ChannelContext] = None

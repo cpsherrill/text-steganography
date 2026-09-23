@@ -1,0 +1,76 @@
+name: Tests
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tests-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  tests:
+    name: Python ${{ matrix.python }} / ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest]
+        python: ['3.9', '3.10', '3.11', '3.12', '3.13', '3.14']
+        include:
+          - os: macos-latest
+            python: '3.13'
+          - os: windows-latest
+            python: '3.13'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Install development dependencies
+        run: python -m pip install -e ".[dev]"
+      - name: Test supported behavior and runnable examples
+        run: python -m pytest --cov --cov-report=term-missing --cov-report=xml --junitxml=junit.xml
+      - name: Upload coverage and test results
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: test-results-${{ matrix.os }}-${{ matrix.python }}
+          path: |
+            coverage.xml
+            junit.xml
+          if-no-files-found: warn
+
+  distribution:
+    name: Build and test the installed wheel
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.13'
+      - run: python -m pip install 'build>=1,<2'
+      - name: Build sdist and wheel from the sdist
+        run: python -m build
+      - name: Verify installation outside the source checkout
+        shell: bash
+        run: |
+          python -m venv "$RUNNER_TEMP/wheel-check"
+          wheel_python="$RUNNER_TEMP/wheel-check/bin/python"
+          "$wheel_python" -m pip install dist/*.whl
+          cd "$RUNNER_TEMP"
+          "$wheel_python" -m text_steganography --help
+          "$RUNNER_TEMP/wheel-check/bin/tsteg" --help
+          "$wheel_python" "$GITHUB_WORKSPACE/examples/recipient_fingerprints.py"
+          "$wheel_python" "$GITHUB_WORKSPACE/examples/transport_probe.py"
+          "$wheel_python" "$GITHUB_WORKSPACE/examples/source_comments.py"

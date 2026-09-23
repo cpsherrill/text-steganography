@@ -51,12 +51,16 @@ class ChannelSurvival:
     @property
     def survival_rate(self) -> Optional[float]:
         """Fraction of expected sites recovered exactly, or None if untested."""
-        if self.expected_sites == 0:
+        if self.expected_sites == 0 or self.site_delta != 0:
             return None
         return self.matched / self.expected_sites
 
     @property
     def label(self) -> SurvivalLabel:
+        # Ordinal comparison cannot establish alignment when sites were added
+        # or removed. Do not turn a high match count into a recommendation.
+        if self.site_delta != 0:
+            return SurvivalLabel.UNTESTED
         return label_for(self.survival_rate)
 
 
@@ -65,10 +69,11 @@ class ProbeReport:
     """The per-channel outcome of a round trip."""
 
     per_channel: Tuple[ChannelSurvival, ...]
-    overall_survival: float
+    overall_survival: Optional[float]
 
     def summary(self) -> str:
-        parts = [f"overall {self.overall_survival * 100:.0f}% survived"]
+        parts = (["overall unmeasured (site alignment changed)"] if self.overall_survival is None
+                 else [f"overall {self.overall_survival * 100:.0f}% survived"])
         for channel in self.per_channel:
             rate = channel.survival_rate
             shown = "n/a" if rate is None else f"{rate * 100:.0f}%"

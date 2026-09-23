@@ -9,11 +9,12 @@ unreliable, so an overlap is a hard error rather than a guess.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from bisect import bisect_right
 from typing import TYPE_CHECKING, List
 
 from ..carriers.spans import site_in_spans
 from ..errors import ConflictError
-from ..models import EmbeddingSite
+from ..models import EmbeddingSite, Observation
 from .site_ordering import PlannedSite, order_sites
 
 if TYPE_CHECKING:
@@ -44,6 +45,18 @@ def _detect_conflicts(sites: List[EmbeddingSite]) -> None:
                 f"[{start_a},{end_a}) and [{start_b},{end_b})"
             )
 
+    starts = [start for start, _, _ in spans]
+    insertion_points = set()
+    for site in sites:
+        if site.start != site.end:
+            continue
+        if site.start in insertion_points:
+            raise ConflictError("multiple channels claim the same insertion point")
+        insertion_points.add(site.start)
+        previous = bisect_right(starts, site.start) - 1
+        if previous >= 0 and spans[previous][0] < site.start < spans[previous][1]:
+            raise ConflictError("insertion site falls inside a replacement span")
+
 
 def build_plan(config: "CodecConfig", text: str) -> EmbeddingPlan:
     """Discover and order every site for ``text`` under ``config``.
@@ -52,6 +65,7 @@ def build_plan(config: "CodecConfig", text: str) -> EmbeddingPlan:
     tag, an attribute, a URL, or code. The plain-text carrier reports the whole
     document, leaving discovery unrestricted.
     """
+    config.validate()
     spans = config.carrier.safe_spans(text)
     per_channel: List[List[EmbeddingSite]] = []
     all_sites: List[EmbeddingSite] = []
@@ -64,4 +78,15 @@ def build_plan(config: "CodecConfig", text: str) -> EmbeddingPlan:
         per_channel.append(sites)
         all_sites.extend(sites)
     _detect_conflicts(all_sites)
-    return EmbeddingPlan(cover_text=text, planned_sites=order_sites(per_channel))
+    warnings = [f"{channel.id}: {warning}" for channel in config.channels
+                for warning in channel.metadata().warnings]
+    return EmbeddingPlan(cover_text=text, planned_sites=order_sites(per_channel), warnings=warnings)
+
+
+def observe_channels(config: "CodecConfig", text: str) -> List[List[Observation]]:
+    """One full-span eligibility rule for decoding, alignment, and probes."""
+    config.validate()
+    spans = config.carrier.safe_spans(text)
+    return [[obs for obs in channel.observe(text)
+             if site_in_spans(obs.start, obs.end, spans)]
+            for channel in config.channels]

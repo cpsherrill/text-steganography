@@ -18,6 +18,7 @@ from .carriers import CarrierAdapter, PlainTextCarrier, build_carrier
 from .carriers.plain_text import PLAIN_TEXT_ID
 from .channels.base import BaseChannel, build_channel
 from .ecc import ErrorCorrectingCodec, NoErrorCorrection, build_ecc
+from .errors import ConfigError
 
 SCHEMA_VERSION = 1
 
@@ -32,9 +33,9 @@ class PackingMode(str, Enum):
 class RepertoirePolicy:
     """Which code points a configuration permits.
 
-    Conservative defaults: Latin script only, no cross-script substitutions,
-    no bidirectional controls, no joiners. Risky choices require explicit
-    opt-in.
+    Cross-script substitutions, bidirectional controls, and joiners require
+    explicit permission. ``scripts`` describes the expected cover scripts;
+    it is metadata, not a Unicode Script-property validator or input filter.
     """
 
     scripts: tuple[str, ...] = ("Latin",)
@@ -54,9 +55,9 @@ class RepertoirePolicy:
     def from_dict(cls, data: Dict[str, Any]) -> "RepertoirePolicy":
         return cls(
             scripts=tuple(data.get("scripts", ("Latin",))),
-            allow_cross_script=bool(data.get("allow_cross_script", False)),
-            allow_bidi_controls=bool(data.get("allow_bidi_controls", False)),
-            allow_joiners=bool(data.get("allow_joiners", False)),
+            allow_cross_script=data.get("allow_cross_script", False),
+            allow_bidi_controls=data.get("allow_bidi_controls", False),
+            allow_joiners=data.get("allow_joiners", False),
         )
 
 
@@ -86,6 +87,34 @@ class CodecConfig:
     carrier: CarrierAdapter = field(default_factory=PlainTextCarrier)
     schema_version: int = SCHEMA_VERSION
 
+    def validate(self) -> None:
+        """Reject declarations the installed implementation cannot honor."""
+        if type(self.schema_version) is not int or self.schema_version != SCHEMA_VERSION:
+            raise ConfigError(f"unsupported schema version: {self.schema_version!r}")
+        if self.framing.format != "length_crc_v1":
+            raise ConfigError(f"unsupported framing format: {self.framing.format!r}")
+        if self.packing is not PackingMode.POWER_OF_TWO:
+            raise ConfigError(f"unsupported packing mode: {self.packing!r}")
+        self.error_correction.validate()
+        if not self.channels:
+            raise ConfigError("at least one channel is required")
+        ids = [channel.id for channel in self.channels]
+        if len(ids) != len(set(ids)):
+            raise ConfigError("duplicate channels are not supported")
+        for permission in ("allow_cross_script", "allow_joiners", "allow_bidi_controls"):
+            if type(getattr(self.repertoire, permission)) is not bool:
+                raise ConfigError(f"{permission} must be a boolean")
+        for channel in self.channels:
+            for permission in channel.required_permissions:
+                if not getattr(self.repertoire, permission, False):
+                    raise ConfigError(f"channel {channel.id!r} requires repertoire.{permission}=True")
+        # Canonical decomposition changes letter identity and neighboring
+        # character classes even when edit spans do not overlap.
+        incompatible = {"punctuation.apostrophe", "homoglyph.cyrillic", "invisible.zero_width"}
+        if "unicode.canonical" in ids and incompatible.intersection(ids):
+            raise ConfigError("unicode.canonical cannot be combined with apostrophe, "
+                              "homoglyph, or zero-width channels; site discovery is not stable")
+
     def to_dict(self) -> Dict[str, Any]:
         data: Dict[str, Any] = {
             "schema_version": self.schema_version,
@@ -106,6 +135,10 @@ class CodecConfig:
                 "version": self.error_correction.version,
                 "params": self.error_correction.params(),
             }
+        # Multi-bit adapters explicitly freeze padding and block geometry.
+        # Existing one-bit configurations retain their original codec ids.
+        if self.error_correction.message_block_bits > 1:
+            data["error_correction"]["block_layout"] = self.error_correction.block_layout()
         # The plain-text carrier is the default. Omitting it keeps a
         # configuration serializing exactly as it did before carriers existed.
         if self.carrier.id != PLAIN_TEXT_ID:
@@ -130,6 +163,9 @@ class CodecConfig:
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "CodecConfig":
+        packing = data.get("packing", PackingMode.POWER_OF_TWO.value)
+        if packing != PackingMode.POWER_OF_TWO.value:
+            raise ConfigError(f"unsupported packing mode: {packing!r}")
         channels = [
             build_channel(entry["id"], entry.get("version", ""), entry.get("params", {}))
             for entry in data["channels"]
@@ -139,6 +175,11 @@ class CodecConfig:
             error_correction: ErrorCorrectingCodec = build_ecc(
                 ecc_data["id"], ecc_data.get("version", ""), ecc_data.get("params", {})
             )
+            layout = ecc_data.get("block_layout")
+            if error_correction.message_block_bits > 1 and layout is None:
+                raise ConfigError("multi-bit ECC configurations require an explicit block_layout")
+            if layout is not None and layout != error_correction.block_layout():
+                raise ConfigError("ECC block_layout does not match the installed adapter")
         else:
             error_correction = NoErrorCorrection()
         carrier_data = data.get("carrier")
@@ -148,12 +189,14 @@ class CodecConfig:
             )
         else:
             carrier = PlainTextCarrier()
-        return cls(
+        config = cls(
             channels=channels,
             repertoire=RepertoirePolicy.from_dict(data.get("repertoire", {})),
-            packing=PackingMode(data.get("packing", PackingMode.POWER_OF_TWO.value)),
+            packing=PackingMode(packing),
             framing=FramingConfig.from_dict(data.get("framing", {})),
             error_correction=error_correction,
             carrier=carrier,
-            schema_version=int(data.get("schema_version", SCHEMA_VERSION)),
+            schema_version=data.get("schema_version", SCHEMA_VERSION),
         )
+        config.validate()
+        return config

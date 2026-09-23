@@ -14,8 +14,8 @@ it. Excerpt alignment, which relies on stable character offsets, cannot follow
 this channel; align_excerpt reports that rather than guessing.
 
 Invisible format characters are widely stripped by editors, chat platforms,
-sanitizers, and normalizers, so this channel is fragile. It is opt-in by the
-act of adding it to a configuration.
+sanitizers, and normalizers, so this channel is fragile. It requires
+RepertoirePolicy(allow_joiners=True) as well as selection in the channel list.
 """
 
 from __future__ import annotations
@@ -38,65 +38,41 @@ _MARK = "\u2060"  # WORD JOINER: zero width, non-breaking
 @register_channel
 class ZeroWidthChannel(BaseChannel):
     id = "invisible.zero_width"
-    version = "1"
+    version = "2"
     length_preserving = False
+    required_permissions = ("allow_joiners",)
 
     def __init__(self) -> None:
         self.variants = ("", _MARK)
 
+    def _scan(self, text: str):
+        # Both discovery and observation consume the same boundary, including
+        # any existing marks, so re-encoding replaces rather than skips them.
+        for i, char in enumerate(text):
+            if not char.isalpha():
+                continue
+            j = i + 1
+            while j < len(text) and text[j] == _MARK:
+                j += 1
+            if j < len(text) and text[j].isalpha():
+                yield i + 1, j
+
     def discover_sites(
         self, text: str, context: Optional[ChannelContext] = None
     ) -> List[EmbeddingSite]:
-        sites: List[EmbeddingSite] = []
-        ordinal = 0
-        for i in range(1, len(text)):
-            if text[i - 1].isalpha() and text[i].isalpha():
-                sites.append(
-                    EmbeddingSite(
-                        channel_id=self.id,
-                        ordinal=ordinal,
-                        start=i,
-                        end=i,  # a zero-width insertion point
-                        variants=self.variants,
-                        canonical="",
-                    )
-                )
-                ordinal += 1
-        return sites
+        return [EmbeddingSite(
+            channel_id=self.id, ordinal=ordinal, start=start, end=end,
+            variants=self.variants, canonical="",
+        ) for ordinal, (start, end) in enumerate(self._scan(text))]
 
     def observe(
         self, text: str, context: Optional[ChannelContext] = None
     ) -> List[Observation]:
-        observations: List[Observation] = []
-        ordinal = 0
-        prev_was_letter = False
-        mark_since_prev = False
-        for i, char in enumerate(text):
-            if char == _MARK:
-                mark_since_prev = True
-                continue
-            if char.isalpha():
-                if prev_was_letter:
-                    symbol = 1 if mark_since_prev else 0
-                    observations.append(
-                        Observation(
-                            channel_id=self.id,
-                            ordinal=ordinal,
-                            state=ObservationState.KNOWN,
-                            symbol=symbol,
-                            radix=2,
-                            raw=_MARK if symbol else "",
-                            start=i,
-                            end=i,
-                        )
-                    )
-                    ordinal += 1
-                prev_was_letter = True
-                mark_since_prev = False
-            else:
-                prev_was_letter = False
-                mark_since_prev = False
-        return observations
+        return [Observation(
+            channel_id=self.id, ordinal=ordinal, state=ObservationState.KNOWN,
+            symbol=int(end > start), radix=2, raw=text[start:end],
+            start=start, end=end,
+        ) for ordinal, (start, end) in enumerate(self._scan(text))]
 
     def canonicalize(self, text: str) -> str:
         return text.replace(_MARK, "")

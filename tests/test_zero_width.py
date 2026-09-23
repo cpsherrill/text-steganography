@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from text_steganography import (
     CodecConfig,
+    RepertoirePolicy,
     DecodeStatus,
     TextSteganographyCodec,
     ZeroWidthChannel,
@@ -11,7 +12,7 @@ _MARK = "\u2060"  # U+2060 word joiner
 
 
 def make_codec() -> TextSteganographyCodec:
-    return TextSteganographyCodec(CodecConfig(channels=[ZeroWidthChannel()]))
+    return TextSteganographyCodec(CodecConfig(channels=[ZeroWidthChannel()], repertoire=RepertoirePolicy(allow_joiners=True)))
 
 
 def prose(n: int) -> str:

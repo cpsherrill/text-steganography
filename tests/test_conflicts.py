@@ -82,3 +82,23 @@ def test_disjoint_spans_are_fine():
     config = CodecConfig(channels=[_SpanA(), _SpanC()])
     plan = build_plan(config, "abcdefgh")
     assert len(plan.planned_sites) == 2
+
+
+class _Insertion(_FixedSpanChannel):
+    id = 'test.insertion'
+    version = '1'
+    _span = (1, 1)
+
+
+class _OtherInsertion(_Insertion):
+    id = 'test.other_insertion'
+
+
+def test_insertion_inside_a_replacement_span_is_rejected():
+    with pytest.raises(ConflictError, match='inside a replacement'):
+        build_plan(CodecConfig(channels=[_SpanA(), _Insertion()]), 'abcdefgh')
+
+
+def test_two_insertions_at_the_same_boundary_are_rejected():
+    with pytest.raises(ConflictError, match='same insertion point'):
+        build_plan(CodecConfig(channels=[_Insertion(), _OtherInsertion()]), 'abcdefgh')
