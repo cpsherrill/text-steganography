@@ -79,12 +79,14 @@ def _cmd_analyze(args: argparse.Namespace) -> int:
                          args.allow_cross_script, args.allow_joiners)
     report = codec.analyze(_read_text(args.input))
     if args.json:
+        report_data = report.to_dict()
         payload = {
             "codec_id": codec.codec_id,
             "total_sites": report.total_sites,
             "realizable_packed_bits": report.realizable_packed_bits,
             "usable_payload_bytes": report.usable_payload_bytes,
-            "max_distinct_payloads": report.max_distinct_payloads,
+            "max_distinct_payloads": report_data["max_distinct_payloads"],
+            "max_distinct_payloads_log2": report.max_distinct_payloads_log2,
             "warnings": list(report.warnings),
             "per_channel": [
                 {"channel_id": c.channel_id, "sites": c.sites, "packed_bits": c.packed_bits}
@@ -102,7 +104,7 @@ def _cmd_analyze(args: argparse.Namespace) -> int:
     print(f"framing overhead bits:     {report.framing_overhead_bits}")
     print(f"integrity overhead bits:   {report.integrity_overhead_bits}")
     print(f"usable payload bytes:      {report.usable_payload_bytes}")
-    print(f"distinct payloads:         {report.max_distinct_payloads}")
+    print(f"distinct payloads:         {report.max_distinct_payloads_display}")
     for channel in report.per_channel:
         print(f"  - {channel.channel_id}: {channel.sites} sites, {channel.packed_bits} bits")
     return 0

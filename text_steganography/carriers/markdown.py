@@ -7,7 +7,7 @@ structure or meaning:
 - inline code spans (backtick runs);
 - link and image destinations and titles, the ``(...)`` after a ``]``;
 - autolinks and raw HTML tags, anything in ``<...>``;
-- reference link definitions (``[label]: url``);
+- reference link definitions (``[label]: url``) and their nonblank continuation runs;
 - the block prefix of each line (indentation, heading ``#`` markers, list
   bullets, blockquote ``>``) and its trailing space, since turning that space
   into a no-break space would stop it from being a heading or a list;
@@ -37,7 +37,7 @@ _BLOCK_PREFIX_RE = re.compile(r"^\s*(?:(?:#{1,6}|>|[-+*]|\d{1,9}[.)])\s+)*")
 @register_carrier
 class MarkdownCarrier(CarrierAdapter):
     id = "carrier.markdown"
-    version = "2"
+    version = "3"
 
     def safe_spans(self, document: str) -> List[Span]:
         n = len(document)
@@ -48,11 +48,19 @@ class MarkdownCarrier(CarrierAdapter):
         # Reuse HTML's tokenizer to protect entities, quoted attributes,
         # comments, declarations, and raw script/style content in Markdown.
         unsafe.extend(invert_spans(HtmlCarrier().safe_spans(document), n))
+        in_reference = False
         for index, (line_start, line_end) in enumerate(lines):
             if index in fenced_lines:
                 continue
             line = document[line_start:line_end]
-            if _REFDEF_RE.match(line) or _INDENT_CODE_RE.match(line):
+            # Reference destinations and titles may continue on later lines.
+            # Quarantine the entire nonblank run rather than guessing where a
+            # multiline title ends. This may conservatively exclude prose.
+            if not line.strip():
+                in_reference = False
+            if _REFDEF_RE.match(line):
+                in_reference = True
+            if in_reference or _INDENT_CODE_RE.match(line):
                 unsafe.append((line_start, line_end))
                 continue
             prefix = _BLOCK_PREFIX_RE.match(line)

@@ -8,7 +8,7 @@ and safely passed between components without defensive copying.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 from enum import Enum
 from typing import Optional
 
@@ -123,6 +123,14 @@ class CapacityReport:
     Unused carrier bits are not counted as ECC overhead. A zero-byte capacity
     can mean either an empty payload fits or no frame fits; use preflight to
     distinguish them.
+
+    Distinct payloads are counted at the maximum usable byte length, not summed
+    across all lengths and not a count of reliably distinguishable recipients.
+    Store only their base-two exponent so repr/str and dataclasses.asdict stay
+    bounded. None means no frame fits; zero means only an empty payload fits.
+    Use to_dict for JSON-safe counts or max_distinct_payloads for exact integer
+    arithmetic. Formatting that explicitly requested integer may exceed Python's
+    integer-to-string limit.
     """
 
     total_sites: int
@@ -134,8 +142,36 @@ class CapacityReport:
     ecc_overhead_bits: int
     usable_payload_bits: int
     usable_payload_bytes: int
-    max_distinct_payloads: int
+    max_distinct_payloads_log2: Optional[int]
     warnings: tuple[str, ...] = ()
+
+    @property
+    def max_distinct_payloads(self) -> int:
+        """Exact count, computed only when requested for integer arithmetic."""
+        exponent = self.max_distinct_payloads_log2
+        return 0 if exponent is None else 1 << exponent
+
+    @property
+    def max_distinct_payloads_display(self) -> str:
+        """A bounded decimal count or exact power-of-two expression."""
+        exponent = self.max_distinct_payloads_log2
+        if exponent is None or exponent < 53:
+            return str(self.max_distinct_payloads)
+        return f"2^{exponent}"
+
+    def to_dict(self) -> dict:
+        """JSON-safe report, retaining an exact exponent for large counts.
+
+        Numeric counts use the interoperable JSON safe-integer range through
+        2**53 - 1; larger counts are null. asdict(self) includes the exponent
+        alone, whereas this method also supplies the bounded numeric count.
+        """
+        data = asdict(self)
+        exponent = self.max_distinct_payloads_log2
+        data["max_distinct_payloads"] = (
+            self.max_distinct_payloads if exponent is None or exponent < 53 else None
+        )
+        return data
 
 
 @dataclass(frozen=True)

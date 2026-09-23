@@ -1,7 +1,7 @@
 # F1–F6 implementation follow-up — September 16, 2026
 
 All six findings from [the assessment](ASSESSMENT.md) are addressed in
-this working tree. The first five findings have 12 ordinary regression tests in
+[PR #16](https://github.com/cpsherrill/text-steganography/pull/16), merged into main. The first five findings have 12 ordinary regression tests in
 [`test_assessment_regressions.py`](../tests/test_assessment_regressions.py).
 F6 has passing [block-contract tests](../tests/test_ecc_contract.py); see the
 [implemented ECC contract](ECC_ADAPTER_CONTRACT.md).
@@ -32,7 +32,8 @@ Empty payloads now serialize as an empty hex string in CLI JSON.
 This remains an unreleased alpha, but changes to discovery are versioned:
 
 - Canonical-Unicode and zero-width channels: version **2**.
-- HTML, Markdown, and source-code carriers: version **2**.
+- HTML and source-code carriers: version **2**. Markdown was version **2**
+  in this fix; the [readiness follow-up](READINESS.md) advances it to **3**.
 - Space/apostrophe mappings and the existing plain-text golden vectors remain
   unchanged. Payload framing and the bundled ECC algorithms remain unchanged.
 - Multi-bit ECC configurations now record an explicit `block_layout`, including
@@ -66,7 +67,7 @@ For homoglyphs use `allow_cross_script=True`. CLI equivalents are
 reconstructing a risky codec for decoding. The saved probe already includes its
 configuration.
 
-## Verification
+## Verification at the F1–F6 merge
 
 - All **453 tests pass** on Python 3.9.6 and 3.11, with no expected failures.
   Python 3.9.6 coverage is **94.50% statements**, **88.48% branches**, and
@@ -88,5 +89,8 @@ configuration.
   observation drift, failed alignment, saved probe migration, and changed counts.
 - Existing golden vectors pass without modification.
 
-Hosted CI still needs to run after these changes are pushed. No external ECC
+[Hosted CI passed on merged main](https://github.com/cpsherrill/text-steganography/actions/runs/35893725214). No external ECC
 adapter, new transport integration, or advanced fingerprinting feature was added.
+
+See [the readiness follow-up](READINESS.md) for current test counts and the
+subsequent capacity-reporting and Markdown fixes.

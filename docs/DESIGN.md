@@ -283,6 +283,12 @@ New channels, repertoires, packing methods, error-correction adapters, carrier a
 
 A copy encoded by one released version should remain decodable later. Channel mappings and configuration schemas therefore need stable identifiers and versions.
 
+Implementation note (pre-release): the current registries reject older component
+versions and do not yet fulfill cross-release decoding compatibility. Before
+publishing, settle and implement the support policy in
+[issue #19](https://github.com/cpsherrill/text-steganography/issues/19); see
+[maintainer guidance](MAINTAINING.md#decoding-compatibility-decision-before-the-first-release).
+
 ---
 
 ## 5. Non-goals

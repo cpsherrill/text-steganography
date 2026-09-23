@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "channels": [
+    {
+      "id": "whitespace.unicode_space",
+      "version": "1",
+      "params": {}
+    },
+    {
+      "id": "punctuation.apostrophe",
+      "version": "1",
+      "params": {}
+    }
+  ],
+  "repertoire": {
+    "scripts": [
+      "Latin"
+    ],
+    "allow_cross_script": false,
+    "allow_bidi_controls": false,
+    "allow_joiners": false
+  },
+  "packing": "power_of_two",
+  "framing": {
+    "format": "length_crc_v1"
+  }
+}
