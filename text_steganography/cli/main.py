@@ -18,7 +18,7 @@ from ..carriers.plain_text import PLAIN_TEXT_ID
 from ..carriers.source_code import SourceCodeCarrier
 from ..channels.base import get_channel_class
 from ..codec import TextSteganographyCodec
-from ..config import CodecConfig
+from ..config import CodecConfig, RepertoirePolicy
 from ..ecc import NoErrorCorrection, RepetitionCode
 from ..errors import TextSteganographyError
 from ..inspect import inspect_text
@@ -32,6 +32,8 @@ def _build_codec(
     ecc_repeat: int = 1,
     carrier_id: str = PLAIN_TEXT_ID,
     carrier_lang: Optional[str] = None,
+    allow_cross_script: bool = False,
+    allow_joiners: bool = False,
 ) -> TextSteganographyCodec:
     ids = [part.strip() for part in channels_arg.split(",") if part.strip()]
     if not ids:
@@ -43,7 +45,9 @@ def _build_codec(
     else:
         carrier = get_carrier_class(carrier_id)()
     return TextSteganographyCodec(
-        CodecConfig(channels=channels, error_correction=error_correction, carrier=carrier)
+        CodecConfig(channels=channels, error_correction=error_correction, carrier=carrier,
+                    repertoire=RepertoirePolicy(allow_cross_script=allow_cross_script,
+                                                allow_joiners=allow_joiners))
     )
 
 
@@ -71,7 +75,8 @@ def _payload_from_args(args: argparse.Namespace) -> bytes:
 
 
 def _cmd_analyze(args: argparse.Namespace) -> int:
-    codec = _build_codec(args.channels, args.ecc_repeat, args.carrier, args.carrier_lang)
+    codec = _build_codec(args.channels, args.ecc_repeat, args.carrier, args.carrier_lang,
+                         args.allow_cross_script, args.allow_joiners)
     report = codec.analyze(_read_text(args.input))
     if args.json:
         payload = {
@@ -80,6 +85,7 @@ def _cmd_analyze(args: argparse.Namespace) -> int:
             "realizable_packed_bits": report.realizable_packed_bits,
             "usable_payload_bytes": report.usable_payload_bytes,
             "max_distinct_payloads": report.max_distinct_payloads,
+            "warnings": list(report.warnings),
             "per_channel": [
                 {"channel_id": c.channel_id, "sites": c.sites, "packed_bits": c.packed_bits}
                 for c in report.per_channel
@@ -87,6 +93,8 @@ def _cmd_analyze(args: argparse.Namespace) -> int:
         }
         print(json.dumps(payload, indent=2))
         return 0
+    for warning in report.warnings:
+        print(f"warning: {warning}", file=sys.stderr)
     print(f"codec_id:                  {codec.codec_id}")
     print(f"total sites:               {report.total_sites}")
     print(f"raw theoretical bits:      {report.raw_theoretical_bits:.1f}")
@@ -101,9 +109,12 @@ def _cmd_analyze(args: argparse.Namespace) -> int:
 
 
 def _cmd_encode(args: argparse.Namespace) -> int:
-    codec = _build_codec(args.channels, args.ecc_repeat, args.carrier, args.carrier_lang)
+    codec = _build_codec(args.channels, args.ecc_repeat, args.carrier, args.carrier_lang,
+                         args.allow_cross_script, args.allow_joiners)
     cover = _read_text(args.input)
     result = codec.encode(cover, _payload_from_args(args))
+    for warning in result.warnings:
+        print(f"warning: {warning}", file=sys.stderr)
     _write_text(args.output, result.text)
     if args.output not in (None, "-"):
         print(
@@ -115,7 +126,8 @@ def _cmd_encode(args: argparse.Namespace) -> int:
 
 
 def _cmd_decode(args: argparse.Namespace) -> int:
-    codec = _build_codec(args.channels, args.ecc_repeat, args.carrier, args.carrier_lang)
+    codec = _build_codec(args.channels, args.ecc_repeat, args.carrier, args.carrier_lang,
+                         args.allow_cross_script, args.allow_joiners)
     result = codec.decode(_read_text(args.input))
     if args.json:
         print(
@@ -123,17 +135,20 @@ def _cmd_decode(args: argparse.Namespace) -> int:
                 {
                     "status": result.status.value,
                     "codec_id": result.codec_id,
-                    "payload_hex": result.payload.hex() if result.payload else None,
+                    "payload_hex": result.payload.hex() if result.payload is not None else None,
                     "integrity_valid": result.integrity_valid,
                     "observed_sites": result.observed_sites,
                     "known_symbols": result.known_symbols,
                     "erasures": result.erasures,
                     "corrected_errors": result.corrected_errors,
+                    "warnings": list(result.warnings),
                 },
                 indent=2,
             )
         )
     else:
+        for warning in result.warnings:
+            print(f"warning: {warning}", file=sys.stderr)
         print(f"status:          {result.status.value}")
         print(f"codec_id:        {result.codec_id}")
         if result.payload is not None:
@@ -178,7 +193,8 @@ def _cmd_inspect(args: argparse.Namespace) -> int:
 
 
 def _cmd_probe_make(args: argparse.Namespace) -> int:
-    codec = _build_codec(args.channels, args.ecc_repeat, args.carrier, args.carrier_lang)
+    codec = _build_codec(args.channels, args.ecc_repeat, args.carrier, args.carrier_lang,
+                         args.allow_cross_script, args.allow_joiners)
     probe = build_probe(codec.config)
     _write_text(args.output, probe.stego)
     with open(args.save, "w", encoding="utf-8") as handle:
@@ -234,9 +250,16 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     subparsers = parser.add_subparsers(dest="command", required=True)
 
+    def add_permissions(sub: argparse.ArgumentParser) -> None:
+        sub.add_argument("--allow-cross-script", action="store_true",
+                         help="permit cross-script homoglyph substitutions")
+        sub.add_argument("--allow-joiners", action="store_true",
+                         help="permit invisible word-joiner insertion")
+
     def add_common(sub: argparse.ArgumentParser, *, with_channels: bool = True) -> None:
         sub.add_argument("-i", "--input", default="-", help="input file, or - for stdin")
         if with_channels:
+            add_permissions(sub)
             sub.add_argument(
                 "-c",
                 "--channels",
@@ -289,6 +312,7 @@ def _build_parser() -> argparse.ArgumentParser:
     probe_make = subparsers.add_parser(
         "probe-make", help="build a transport-probe sample to send"
     )
+    add_permissions(probe_make)
     probe_make.add_argument(
         "-c", "--channels", default=DEFAULT_CHANNELS, help="comma-separated channel ids"
     )

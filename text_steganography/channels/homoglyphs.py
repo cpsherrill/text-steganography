@@ -6,8 +6,7 @@ between the Latin form and its Cyrillic twin: a Latin ``o`` (U+006F) or a
 Cyrillic ``о`` (U+043E), and so on. The reader sees the same word; the code
 points differ.
 
-This is the highest-risk channel in the library and it is opt-in by the act of
-adding it to a configuration. Cross-script text trips phishing and
+This is the highest-risk channel in the library and it requires explicit permission through RepertoirePolicy. Cross-script text trips phishing and
 spoofing detectors, breaks exact search and sorting, confuses screen readers,
 and is often rejected or normalized. Its variants are still single code points,
 so it is length-preserving and works with excerpt alignment and carriers, but
@@ -68,6 +67,7 @@ class CyrillicHomoglyphChannel(BaseChannel):
     id = "homoglyph.cyrillic"
     version = "1"
     length_preserving = True
+    required_permissions = ("allow_cross_script",)
 
     def discover_sites(
         self, text: str, context: Optional[ChannelContext] = None

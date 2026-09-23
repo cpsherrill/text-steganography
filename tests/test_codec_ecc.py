@@ -83,7 +83,7 @@ def test_ecc_changes_codec_id_and_serializes():
 def test_ecc_reduces_usable_capacity():
     report = make_codec(3).analyze(cover(300))  # 299 sites
     assert report.usable_payload_bytes == 3  # 299 // 3 = 99 message bits, minus 72
-    assert report.ecc_overhead_bits == 198
+    assert report.ecc_overhead_bits == 192  # 96-bit maximal frame -> 288 encoded bits
 
 
 def test_ecc_rejects_oversized_payload():

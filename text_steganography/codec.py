@@ -9,14 +9,15 @@ checksum fails comes back as ``INVALID`` with no payload rather than as bytes.
 from __future__ import annotations
 
 import math
+from copy import deepcopy
+from dataclasses import replace
 from typing import List, Optional, Sequence
 
-from .carriers.spans import position_in_spans
 from .config import CodecConfig
 from .core.bits import bits_to_bytes, bytes_to_bits, int_to_bits
-from .core.planner import build_plan
+from .core.planner import build_plan, observe_channels
 from .core.symbol_packing import pack_bits_into_symbols, site_bit_width, sites_consumed
-from .errors import CapacityError
+from .errors import CapacityError, ConfigError, FramingError
 from .identify.matcher import identify_bits, min_pairwise_distance
 from .identify.models import AlignmentResult, FingerprintPreflight, IdentificationResult
 from .models import (
@@ -32,6 +33,7 @@ from .payload.framing import (
     FRAME_VERSION,
     HEADER_LEN,
     MAGIC,
+    MAX_PAYLOAD_BYTES,
     OVERHEAD_BYTES,
     frame,
     unframe,
@@ -48,22 +50,28 @@ class TextSteganographyCodec:
     """Compiles a configuration and runs the analyze/encode/decode workflow."""
 
     def __init__(self, config: CodecConfig) -> None:
-        self.config = config
+        config.validate()
+        self._config = deepcopy(config)
+
+    @property
+    def config(self) -> CodecConfig:
+        """A defensive copy; construct a new codec to change its configuration."""
+        return deepcopy(self._config)
 
     @property
     def codec_id(self) -> str:
-        return self.config.codec_id
+        return self._config.codec_id
 
     def analyze(self, text: str) -> CapacityReport:
         """Report how much information ``text`` can carry under this config."""
-        plan = build_plan(self.config, text)
+        plan = build_plan(self._config, text)
 
         groups: dict[int, List] = {}
         for planned in plan.planned_sites:
             groups.setdefault(planned.channel_index, []).append(planned)
 
         per_channel: List[ChannelCapacity] = []
-        for channel_index, channel in enumerate(self.config.channels):
+        for channel_index, channel in enumerate(self._config.channels):
             channel_sites = groups.get(channel_index, [])
             raw_bits = sum(
                 math.log2(planned.site.radix)
@@ -85,18 +93,21 @@ class TextSteganographyCodec:
 
         # Error correction spends part of the realizable capacity on redundancy.
         # message_len is the whole message bits that survive after that spend.
-        ecc = self.config.error_correction
+        ecc = self._config.error_correction
         message_capacity_bits = ecc.message_len(realizable)
-        ecc_overhead_bits = ecc.codeword_len(message_capacity_bits) - message_capacity_bits
+        ecc_overhead_bits = 0
 
         if message_capacity_bits < _TOTAL_OVERHEAD_BITS:
             usable_bytes = 0
             usable_bits = 0
             max_payloads = 0
         else:
-            usable_bytes = (message_capacity_bits - _TOTAL_OVERHEAD_BITS) // 8
+            usable_bytes = min(MAX_PAYLOAD_BYTES, (message_capacity_bits - _TOTAL_OVERHEAD_BITS) // 8)
             usable_bits = usable_bytes * 8
             max_payloads = 1 << usable_bits
+            # Cost of the largest usable frame, including final-block padding.
+            frame_bits = _TOTAL_OVERHEAD_BITS + usable_bits
+            ecc_overhead_bits = ecc.codeword_len(frame_bits) - frame_bits
 
         return CapacityReport(
             total_sites=len(plan.planned_sites),
@@ -114,12 +125,12 @@ class TextSteganographyCodec:
 
     def encode(self, text: str, payload: bytes) -> EncodeResult:
         """Embed ``payload`` into ``text`` and return the stegotext."""
-        plan = build_plan(self.config, text)
+        plan = build_plan(self._config, text)
         widths = [planned.width for planned in plan.planned_sites]
         capacity = sum(widths)
 
         framed_bits = bytes_to_bits(frame(payload))
-        codeword_bits = self.config.error_correction.encode_bits(framed_bits)
+        codeword_bits = self._config.error_correction.encode_bits(framed_bits)
         need = len(codeword_bits)
         if need > capacity:
             raise CapacityError(
@@ -137,10 +148,16 @@ class TextSteganographyCodec:
             if variant != text[site.start : site.end]:
                 edits.append((site.start, site.end, variant))
 
-        edits.sort(key=lambda edit: edit[0], reverse=True)
+        edits.sort(key=lambda edit: (edit[0], edit[1]), reverse=True)
         out = text
         for start, end, replacement in edits:
             out = out[:start] + replacement + out[end:]
+
+        # Nonoverlap alone cannot guarantee independent channel discovery.
+        # Refuse an output whose observed stream differs from the planned one.
+        observed, _, _, _ = self._observe_slots(out)
+        if observed != list(codeword_bits) + [0] * (capacity - need):
+            raise ConfigError("channel/carrier combination changes site discovery during encoding")
 
         return EncodeResult(
             text=out,
@@ -160,15 +177,12 @@ class TextSteganographyCodec:
         is a bit (0/1) or ``None`` for an erased position. This is the common
         front end for both decoding and candidate identification.
         """
-        spans = self.config.carrier.safe_spans(text)
         slots: List[Optional[int]] = []
         observations: List[Observation] = []
         known = 0
         erasures = 0
-        for channel in self.config.channels:
-            for observation in channel.observe(text):
-                if not position_in_spans(observation.start, spans):
-                    continue
+        for channel_observations in observe_channels(self._config, text):
+            for observation in channel_observations:
                 observations.append(observation)
                 width = site_bit_width(observation.radix)
                 if width == 0:
@@ -187,7 +201,7 @@ class TextSteganographyCodec:
 
     def _expected_codeword_bits(self, payload: bytes) -> List[int]:
         """The codeword bits a given payload would encode to under this config."""
-        return self.config.error_correction.encode_bits(bytes_to_bits(frame(payload)))
+        return self._config.error_correction.encode_bits(bytes_to_bits(frame(payload)))
 
     def decode(self, text: str) -> DecodeResult:
         """Recover a payload from ``text``, or report why it could not."""
@@ -199,64 +213,42 @@ class TextSteganographyCodec:
             known_symbols=known,
             erasures=erasures,
             observations=tuple(observations),
+            warnings=tuple(f"{channel.id}: {warning}" for channel in self._config.channels
+                           for warning in channel.metadata().warnings),
         )
 
-        ecc = self.config.error_correction
-        block = ecc.codeword_block_bits
-        message_block = ecc.message_block_bits
-
-        def decode_message_prefix(message_bits_wanted: int):
-            """Decode the first ``message_bits_wanted`` message bits.
-
-            Returns (bits, corrected, status) where status is one of "ok",
-            "insufficient" (not enough observed codeword), or "uncorrectable"
-            (a block could not be resolved).
-            """
-            num_blocks = message_bits_wanted // message_block
-            codeword_needed = num_blocks * block
-            if len(slots) < codeword_needed:
-                return None, 0, "insufficient"
-            bits: List[int] = []
-            corrected_total = 0
-            for index in range(num_blocks):
-                block_obs = slots[index * block : (index + 1) * block]
-                result = ecc.decode_block(block_obs)
-                if result.bits is None:
-                    return None, corrected_total, "uncorrectable"
-                bits.extend(result.bits)
-                corrected_total += result.corrected
-            return bits, corrected_total, "ok"
-
-        header_bits, _, header_status = decode_message_prefix(_HEADER_BITS)
-        if header_status == "insufficient":
-            return DecodeResult(
-                status=DecodeStatus.INSUFFICIENT_EVIDENCE, payload=None, **common
-            )
-        if header_status == "uncorrectable":
+        ecc = self._config.error_correction
+        header = ecc.decode_prefix(slots, _HEADER_BITS)
+        if header.status == "insufficient":
+            return DecodeResult(status=DecodeStatus.INSUFFICIENT_EVIDENCE, payload=None, **common)
+        if header.status == "uncorrectable":
             return DecodeResult(status=DecodeStatus.PARTIAL, payload=None, **common)
-
+        header_bits = header.bits
         header_bytes = bits_to_bytes(header_bits)
         if header_bytes[0:2] != MAGIC:
             return DecodeResult(status=DecodeStatus.INVALID, payload=None, **common)
 
         version = header_bytes[2]
+        if version != FRAME_VERSION:
+            return DecodeResult(status=DecodeStatus.INVALID, payload=None, frame_version=version, **common)
         length = int.from_bytes(header_bytes[3:5], "big")
         total_message_bits = (OVERHEAD_BYTES + length) * 8
 
-        frame_bits, corrected, frame_status = decode_message_prefix(total_message_bits)
-        if frame_status == "insufficient":
+        decoded = ecc.decode_prefix(slots, total_message_bits, check_padding=True)
+        if decoded.status == "insufficient":
             return DecodeResult(
-                status=DecodeStatus.INSUFFICIENT_EVIDENCE,
-                payload=None,
-                frame_version=version,
-                **common,
+                status=DecodeStatus.INSUFFICIENT_EVIDENCE, payload=None,
+                frame_version=version, **common,
             )
-        if frame_status == "uncorrectable":
-            return DecodeResult(
-                status=DecodeStatus.PARTIAL, payload=None, frame_version=version, **common
-            )
-
-        parsed = unframe(bits_to_bytes(frame_bits))
+        if decoded.status == "uncorrectable":
+            return DecodeResult(status=DecodeStatus.PARTIAL, payload=None, frame_version=version, **common)
+        if decoded.status == "invalid_padding":
+            return DecodeResult(status=DecodeStatus.INVALID, payload=None, frame_version=version, **common)
+        corrected = decoded.corrected
+        try:
+            parsed = unframe(bits_to_bytes(decoded.bits))
+        except FramingError:
+            return DecodeResult(status=DecodeStatus.INVALID, payload=None, frame_version=version, **common)
         if not parsed.integrity_valid:
             return DecodeResult(
                 status=DecodeStatus.INVALID,
@@ -277,9 +269,11 @@ class TextSteganographyCodec:
         )
 
     def canonicalize(self, text: str) -> str:
-        """Map every channel's variants back to their neutral form."""
-        for channel in self.config.channels:
-            text = channel.canonicalize(text)
+        """Neutralize eligible sites while preserving protected carrier content."""
+        plan = build_plan(self._config, text)
+        edits = [(p.site.start, p.site.end, p.site.canonical) for p in plan.planned_sites]
+        for start, end, neutral in sorted(edits, key=lambda edit: (edit[0], edit[1]), reverse=True):
+            text = text[:start] + neutral + text[end:]
         return text
 
     def align_excerpt(self, cover_text: str, excerpt: str) -> AlignmentResult:
@@ -291,7 +285,7 @@ class TextSteganographyCodec:
         assumes the channels in use preserve character offsets under
         canonicalization (the single-character channels shipped so far do).
         """
-        plan = build_plan(self.config, cover_text)
+        plan = build_plan(self._config, cover_text)
         offset_map = {}
         bit_offset = 0
         for planned in plan.planned_sites:
@@ -302,11 +296,16 @@ class TextSteganographyCodec:
         # Excerpt alignment maps by character offset. A channel that inserts or
         # changes the length of a site shifts every offset after it, so the map
         # would be wrong. Report that instead of returning a confident lie.
-        if any(not channel.length_preserving for channel in self.config.channels):
+        if any(not channel.length_preserving for channel in self._config.channels):
             return AlignmentResult("unsupported", None, 0, 0, global_capacity, None)
 
-        canon_cover = self.canonicalize(cover_text)
-        canon_excerpt = self.canonicalize(excerpt)
+        # Excerpts may start inside a tag, string, or comment and cannot be
+        # parsed as standalone carrier documents. Normalize only for locating
+        # the excerpt; the original cover plan controls admissible evidence.
+        canon_cover, canon_excerpt = cover_text, excerpt
+        for channel in self._config.channels:
+            canon_cover = channel.canonicalize(canon_cover)
+            canon_excerpt = channel.canonicalize(canon_excerpt)
 
         occurrences = []
         if canon_excerpt:
@@ -326,11 +325,9 @@ class TextSteganographyCodec:
         offset = occurrences[0]
         slots: List[Optional[int]] = [None] * global_capacity
         mapped = 0
-        for channel_index, channel in enumerate(self.config.channels):
-            sites = channel.discover_sites(excerpt)
-            observations = channel.observe(excerpt)
-            for site, observation in zip(sites, observations):
-                target = offset_map.get((channel_index, offset + site.start))
+        for channel_index, channel in enumerate(self._config.channels):
+            for observation in channel.observe(excerpt):
+                target = offset_map.get((channel_index, offset + observation.start))
                 if target is None:
                     continue
                 position, width = target
@@ -361,6 +358,7 @@ class TextSteganographyCodec:
         evidence. Either way this can narrow the source even when ``decode``
         cannot recover a payload.
         """
+        alignment = None
         if cover_text is None:
             observed_slots, _, _, _ = self._observe_slots(observed_text)
             slots: Sequence[Optional[int]] = observed_slots
@@ -373,7 +371,8 @@ class TextSteganographyCodec:
         candidate_bits = [
             (payload, self._expected_codeword_bits(payload)) for payload in candidates
         ]
-        return identify_bits(slots, candidate_bits)
+        result = identify_bits(slots, candidate_bits)
+        return replace(result, alignment=alignment)
 
     def preflight(self, cover_text: str, payloads: Sequence[bytes]) -> FingerprintPreflight:
         """Check a set of fingerprints against one cover before distribution.
@@ -383,7 +382,7 @@ class TextSteganographyCodec:
         (a rough measure of how much damage a copy can take before two sources
         become confusable).
         """
-        capacity = sum(planned.width for planned in build_plan(self.config, cover_text).planned_sites)
+        capacity = sum(planned.width for planned in build_plan(self._config, cover_text).planned_sites)
         report = self.analyze(cover_text)
 
         expected = [self._expected_codeword_bits(payload) for payload in payloads]

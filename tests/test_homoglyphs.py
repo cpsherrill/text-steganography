@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from text_steganography import (
     CodecConfig,
+    RepertoirePolicy,
     CyrillicHomoglyphChannel,
     DecodeStatus,
     TextSteganographyCodec,
@@ -14,7 +15,7 @@ _CYRILLIC_O = "\u043e"  # U+043E
 
 
 def make_codec() -> TextSteganographyCodec:
-    return TextSteganographyCodec(CodecConfig(channels=[CyrillicHomoglyphChannel()]))
+    return TextSteganographyCodec(CodecConfig(channels=[CyrillicHomoglyphChannel()], repertoire=RepertoirePolicy(allow_cross_script=True)))
 
 
 def prose(n: int) -> str:
@@ -68,7 +69,7 @@ def test_metadata_is_high_risk():
 
 def test_composes_with_other_channels():
     codec = TextSteganographyCodec(
-        CodecConfig(channels=[UnicodeSpaceChannel(), CyrillicHomoglyphChannel()])
+        CodecConfig(channels=[UnicodeSpaceChannel(), CyrillicHomoglyphChannel()], repertoire=RepertoirePolicy(allow_cross_script=True))
     )
     cover = prose(30)
     stego = codec.encode(cover, b"both").text

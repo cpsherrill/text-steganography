@@ -11,6 +11,7 @@ from .none import NoErrorCorrection
 from .protocol import (
     BlockResult,
     EccCost,
+    PrefixResult,
     ErrorCorrectingCodec,
     build_ecc,
     get_ecc_class,
@@ -22,6 +23,7 @@ __all__ = [
     "ErrorCorrectingCodec",
     "BlockResult",
     "EccCost",
+    "PrefixResult",
     "register_ecc",
     "get_ecc_class",
     "build_ecc",

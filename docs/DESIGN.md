@@ -1,9 +1,17 @@
 # Project Design: A Modular Python Library for Lossless Text Steganography and Fingerprinting
 
-**Status:** Initial design and project-definition document  
+**Status:** Original design and roadmap; not a current implementation inventory
+
 **Working project name:** Text Steganography  
 **Package name:** To be chosen, but the public name should use the word **steganography** so that the purpose is recognizable and searchable  
 **Primary implementation language:** Python
+
+> **Implementation update (September 16, 2026):** The repository now contains an
+> unreleased alpha with a working core and substantial portions of phases 2–4.
+> This document preserves the original design intent; examples and guarantees
+> here are not all implemented. Read [the assessment](ASSESSMENT.md) for the historical review,
+> [the hardening notes](HARDENING.md) for the fixes, and [the README](../README.md)
+> for current status.
 
 ---
 

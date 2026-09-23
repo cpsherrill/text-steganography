@@ -27,9 +27,9 @@ class RepetitionCode(ErrorCorrectingCodec):
     message_block_bits = 1
 
     def __init__(self, repeat: int = 3) -> None:
-        if repeat < 1:
-            raise ValueError("repeat must be at least 1")
-        self.repeat = int(repeat)
+        if type(repeat) is not int or repeat < 1:
+            raise ValueError("repeat must be a positive integer")
+        self.repeat = repeat
         self.codeword_block_bits = self.repeat
 
     def encode_block(self, bits: Tuple[int, ...]) -> List[int]:

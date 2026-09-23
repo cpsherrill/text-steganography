@@ -24,6 +24,9 @@ env/
 .coverage
 .coverage.*
 htmlcov/
+coverage.xml
+coverage.json
+junit.xml
 
 # Editors and OS
 .idea/

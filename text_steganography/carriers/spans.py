@@ -48,4 +48,7 @@ def position_in_spans(position: int, spans: Sequence[Span]) -> bool:
 
 def site_in_spans(start: int, end: int, spans: Sequence[Span]) -> bool:
     """Whether the whole half-open range ``[start, end)`` fits inside a span."""
-    return any(span_start <= start and end <= span_end for span_start, span_end in spans)
+    if start == end:
+        # An insertion at a boundary could change a neighboring protected token.
+        return any(span_start < start < span_end for span_start, span_end in spans)
+    return any(span_start <= start < end <= span_end for span_start, span_end in spans)

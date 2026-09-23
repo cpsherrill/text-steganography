@@ -117,6 +117,12 @@ class CapacityReport:
     Theoretical, realizable, overhead, and usable figures are reported
     separately so the numbers never quietly conflate raw entropy with what a
     robust payload can actually use.
+
+    ``ecc_overhead_bits`` includes redundancy and final-block zero padding for
+    the largest fitting frame (zero when even an empty frame cannot fit).
+    Unused carrier bits are not counted as ECC overhead. A zero-byte capacity
+    can mean either an empty payload fits or no frame fits; use preflight to
+    distinguish them.
     """
 
     total_sites: int

@@ -45,8 +45,8 @@ def frame(payload: bytes, *, version: int = FRAME_VERSION) -> bytes:
         raise FramingError(
             f"payload of {len(payload)} bytes exceeds the {MAX_PAYLOAD_BYTES}-byte frame limit"
         )
-    if not 0 <= version <= 0xFF:
-        raise FramingError("frame version must fit in one byte")
+    if type(version) is not int or version != FRAME_VERSION:
+        raise FramingError(f"unsupported frame version: {version!r}")
     body = MAGIC + bytes([version]) + len(payload).to_bytes(2, "big") + payload
     return body + crc32(body).to_bytes(4, "big")
 
@@ -64,6 +64,8 @@ def unframe(data: bytes) -> Frame:
     if data[0:2] != MAGIC:
         raise FramingError("frame magic not found")
     version = data[2]
+    if version != FRAME_VERSION:
+        raise FramingError(f"unsupported frame version: {version!r}")
     length = int.from_bytes(data[3:5], "big")
     payload_end = HEADER_LEN + length
     if len(data) < payload_end + TRAILER_LEN:
