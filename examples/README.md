@@ -56,3 +56,7 @@ canonical-Unicode/channel combinations are rejected. Changed site counts return
 an untested probe result with no survival percentage; unchanged counts alone
 are not proof of successful payload recovery. See [the hardening notes](../docs/HARDENING.md)
 for supported source syntax and configuration-version migration.
+
+See [realistic-use validation](../docs/REALISTIC_VALIDATION.md) for recorded local
+file/ZIP/pipe/pasteboard experiments and their limits. These examples remain
+small demonstrations; named external applications still require their own tests.

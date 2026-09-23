@@ -1,6 +1,6 @@
 # Implementation assessment — September 15, 2026
 
-> **Follow-up (September 16):** F1–F6 have been addressed in the working tree. Read
+> **Follow-up (September 23):** F1–F6 were merged in PR #16; hosted CI passed. Read
 > [the hardening notes](HARDENING.md) for current behavior and verification.
 > [The ECC contract](ECC_ADAPTER_CONTRACT.md) records the F6 fix. This assessment is
 > retained as a historical baseline, not a list of still-unfixed problems.
@@ -230,4 +230,4 @@ python -m build
 The new CI workflow configures Python 3.9–3.14 on Linux, additional macOS/Windows
 jobs on 3.13, example execution, a 90% combined coverage floor, and a build/install
 check outside the source checkout. The former expected failures now pass. It is
-configuration, not evidence of a successful hosted run until pushed and run.
+[now verified on merged main](https://github.com/cpsherrill/text-steganography/actions/runs/35893725214).

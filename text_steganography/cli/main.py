@@ -25,6 +25,8 @@ from ..inspect import inspect_text
 from ..probe import Probe, build_probe
 
 DEFAULT_CHANNELS = "whitespace.unicode_space"
+# Use the interoperable safe-integer range for JSON numeric counts.
+_MAX_JSON_INTEGER = (1 << 53) - 1
 
 
 def _build_codec(
@@ -78,13 +80,17 @@ def _cmd_analyze(args: argparse.Namespace) -> int:
     codec = _build_codec(args.channels, args.ecc_repeat, args.carrier, args.carrier_lang,
                          args.allow_cross_script, args.allow_joiners)
     report = codec.analyze(_read_text(args.input))
+    count = report.max_distinct_payloads
+    count_log2 = report.usable_payload_bits if count else None
+    compact_count = str(count) if count <= _MAX_JSON_INTEGER else f"2^{count_log2}"
     if args.json:
         payload = {
             "codec_id": codec.codec_id,
             "total_sites": report.total_sites,
             "realizable_packed_bits": report.realizable_packed_bits,
             "usable_payload_bytes": report.usable_payload_bytes,
-            "max_distinct_payloads": report.max_distinct_payloads,
+            "max_distinct_payloads": count if count <= _MAX_JSON_INTEGER else None,
+            "max_distinct_payloads_log2": count_log2,
             "warnings": list(report.warnings),
             "per_channel": [
                 {"channel_id": c.channel_id, "sites": c.sites, "packed_bits": c.packed_bits}
@@ -102,7 +108,7 @@ def _cmd_analyze(args: argparse.Namespace) -> int:
     print(f"framing overhead bits:     {report.framing_overhead_bits}")
     print(f"integrity overhead bits:   {report.integrity_overhead_bits}")
     print(f"usable payload bytes:      {report.usable_payload_bytes}")
-    print(f"distinct payloads:         {report.max_distinct_payloads}")
+    print(f"distinct payloads:         {compact_count}")
     for channel in report.per_channel:
         print(f"  - {channel.channel_id}: {channel.sites} sites, {channel.packed_bits} bits")
     return 0

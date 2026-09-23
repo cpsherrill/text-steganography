@@ -13,7 +13,7 @@ different, and the difference carries the payload.
 
 ## Status
 
-**Unreleased alpha (`0.0.0`), hardened September 16, 2026.** The core workflow
+**Unreleased alpha (`0.0.0`), hardened September 23, 2026.** The core workflow
 and substantial portions of phases 2–4 are implemented. Assessment findings
 F1–F6 are addressed, including generic ECC block/framing integration.
 See [the hardening notes](docs/HARDENING.md) for fixes, explicit supported
@@ -49,11 +49,10 @@ for runnable demonstrations. Implemented today:
 - the `inspect` diagnostic and a `tsteg` command-line tool;
 - golden vectors, property-based tests, and runnable workflow tests;
 - GitHub Actions configuration for tests, coverage, and distribution checks
-  (hosted results become available after the workflow is pushed).
+  ([merged-main CI passed](https://github.com/cpsherrill/text-steganography/actions/runs/35893725214)).
 
-Locally verified on Python 3.9 and 3.11: **453 passing tests, no expected failures**.
-Python 3.9 coverage is **94.50% statements**, **88.48% branches**, and **93.20%
-combined**. Tests include fixed-block ECC boundaries and damaged input, every
+Locally verified on Python 3.9 and 3.11: **486 passing tests, no expected failures**.
+Python 3.9 combined statement/branch coverage is **94.16%**. Tests include fixed-block ECC boundaries and damaged input, every
 canonical Unicode decomposition pair in the local runtime, generated Unicode
 covers, compatible channel combinations, and protected document regions.
 Passing tests do not establish safety for arbitrary document extensions or
@@ -62,6 +61,11 @@ real-world transport paths.
 Not built yet: sequence alignment for excerpts altered by insertion or deletion,
 mixed-radix packing, keyed placement, and collusion-resistant fingerprint codes.
 The full plan and the reasoning behind it live in [docs/DESIGN.md](docs/DESIGN.md).
+
+See [the changelog](CHANGELOG.md), [readiness follow-up](docs/READINESS.md),
+and [realistic-use measurements](docs/REALISTIC_VALIDATION.md). Large CLI JSON
+capacity counts are nullable and have an exact exponent; Markdown carrier 3
+protects multiline reference definitions.
 
 ## The core idea
 

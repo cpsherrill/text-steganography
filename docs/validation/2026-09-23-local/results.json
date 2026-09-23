@@ -1,0 +1,93 @@
+{
+  "recorded_at": "2026-09-23T17:35:27.837710+00:00",
+  "platform": "macOS-26.5.1-arm64-arm-64bit",
+  "macos": "26.5.1",
+  "python": "3.9.6",
+  "git_commit": "c7e4cd81b1f8f6c0ba2a6bf407ceff551fdc4e23",
+  "working_tree_dirty": true,
+  "codec_id": "dcd23847fba762a2",
+  "payload_hex": "726563697069656e742d3137",
+  "scope": "Local OS paths only; no email/chat/editor/cloud-service delivery measured.",
+  "results": [
+    {
+      "route": "file_copy",
+      "samples": {
+        "payload": {
+          "sent_sha256": "44f6f1b138cef34c4c5a0ec7869942aedc155f67c93c9165f2edac9619fdc24c",
+          "returned_sha256": "44f6f1b138cef34c4c5a0ec7869942aedc155f67c93c9165f2edac9619fdc24c",
+          "byte_identical": true
+        },
+        "probe": {
+          "sent_sha256": "b37321956068f64ab4e320a10bf0974f649b04ced4be711495d2f88cdbdec9cf",
+          "returned_sha256": "b37321956068f64ab4e320a10bf0974f649b04ced4be711495d2f88cdbdec9cf",
+          "byte_identical": true
+        }
+      },
+      "decode_status": "success",
+      "payload_matches": true,
+      "unique_correct_candidate": true,
+      "probe_survival": 1.0,
+      "probe_summary": "overall 100% survived; whitespace.unicode_space: 100% [recommended]; punctuation.apostrophe: 100% [recommended]"
+    },
+    {
+      "route": "zip_extract",
+      "samples": {
+        "payload": {
+          "sent_sha256": "44f6f1b138cef34c4c5a0ec7869942aedc155f67c93c9165f2edac9619fdc24c",
+          "returned_sha256": "44f6f1b138cef34c4c5a0ec7869942aedc155f67c93c9165f2edac9619fdc24c",
+          "byte_identical": true
+        },
+        "probe": {
+          "sent_sha256": "b37321956068f64ab4e320a10bf0974f649b04ced4be711495d2f88cdbdec9cf",
+          "returned_sha256": "b37321956068f64ab4e320a10bf0974f649b04ced4be711495d2f88cdbdec9cf",
+          "byte_identical": true
+        }
+      },
+      "decode_status": "success",
+      "payload_matches": true,
+      "unique_correct_candidate": true,
+      "probe_survival": 1.0,
+      "probe_summary": "overall 100% survived; whitespace.unicode_space: 100% [recommended]; punctuation.apostrophe: 100% [recommended]"
+    },
+    {
+      "route": "subprocess_pipe",
+      "samples": {
+        "payload": {
+          "sent_sha256": "44f6f1b138cef34c4c5a0ec7869942aedc155f67c93c9165f2edac9619fdc24c",
+          "returned_sha256": "44f6f1b138cef34c4c5a0ec7869942aedc155f67c93c9165f2edac9619fdc24c",
+          "byte_identical": true
+        },
+        "probe": {
+          "sent_sha256": "b37321956068f64ab4e320a10bf0974f649b04ced4be711495d2f88cdbdec9cf",
+          "returned_sha256": "b37321956068f64ab4e320a10bf0974f649b04ced4be711495d2f88cdbdec9cf",
+          "byte_identical": true
+        }
+      },
+      "decode_status": "success",
+      "payload_matches": true,
+      "unique_correct_candidate": true,
+      "probe_survival": 1.0,
+      "probe_summary": "overall 100% survived; whitespace.unicode_space: 100% [recommended]; punctuation.apostrophe: 100% [recommended]"
+    },
+    {
+      "route": "macos_plaintext_pasteboard",
+      "samples": {
+        "payload": {
+          "sent_sha256": "44f6f1b138cef34c4c5a0ec7869942aedc155f67c93c9165f2edac9619fdc24c",
+          "returned_sha256": "44f6f1b138cef34c4c5a0ec7869942aedc155f67c93c9165f2edac9619fdc24c",
+          "byte_identical": true
+        },
+        "probe": {
+          "sent_sha256": "b37321956068f64ab4e320a10bf0974f649b04ced4be711495d2f88cdbdec9cf",
+          "returned_sha256": "b37321956068f64ab4e320a10bf0974f649b04ced4be711495d2f88cdbdec9cf",
+          "byte_identical": true
+        }
+      },
+      "decode_status": "success",
+      "payload_matches": true,
+      "unique_correct_candidate": true,
+      "probe_survival": 1.0,
+      "probe_summary": "overall 100% survived; whitespace.unicode_space: 100% [recommended]; punctuation.apostrophe: 100% [recommended]"
+    }
+  ]
+}

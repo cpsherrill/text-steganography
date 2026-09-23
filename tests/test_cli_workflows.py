@@ -49,3 +49,44 @@ def test_saved_probe_survives_reload_and_detects_normalization(tmp_path, capsys)
     report = json.loads(capsys.readouterr().out)
     assert report['overall_survival'] == 0.0
     assert report['per_channel'][0]['label'] == 'unsupported'
+
+
+@pytest.mark.parametrize('capacity,expected_count,expected_log2', [
+    (71, 0, None), (72, 1, 0), (80, 256, 8),
+    (120, 2**48, 48), (128, None, 56), (16000, None, 15928),
+])
+def test_capacity_count_has_exact_bounded_json_representation(
+    capacity, expected_count, expected_log2, monkeypatch, capsys,
+):
+    cover = ' '.join(['word'] * (capacity + 1))
+    monkeypatch.setattr('sys.stdin', io.StringIO(cover))
+    assert main(['analyze', '--json']) == 0
+    result = json.loads(capsys.readouterr().out)
+    assert result['max_distinct_payloads'] == expected_count
+    assert result['max_distinct_payloads_log2'] == expected_log2
+    monkeypatch.setattr('sys.stdin', io.StringIO(cover))
+    assert main(['analyze']) == 0
+    expected = str(expected_count) if expected_count is not None else f'2^{expected_log2}'
+    assert f'distinct payloads:         {expected}\n' in capsys.readouterr().out
+
+
+def test_large_capacity_under_strict_python_integer_limit():
+    import os
+    import subprocess
+    import sys
+    # Python 3.11+ (and patched older interpreters) honor this environment flag.
+    # Do not disable or mutate the interpreter's protection to format a report.
+    for flags in ([], ['--json']):
+        result = subprocess.run(
+            [sys.executable, '-m', 'text_steganography', 'analyze', *flags],
+            input=' '.join(['word'] * 16001), text=True, capture_output=True,
+            env={**os.environ, 'PYTHONINTMAXSTRDIGITS': '640'}, timeout=20,
+        )
+        assert result.returncode == 0, result.stderr
+        assert len(result.stdout) < 2000
+        if flags:
+            report = json.loads(result.stdout)
+            assert report['max_distinct_payloads'] is None
+            assert report['max_distinct_payloads_log2'] == 15928
+        else:
+            assert '2^15928' in result.stdout
