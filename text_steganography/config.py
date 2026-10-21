@@ -4,6 +4,11 @@ The configuration is the complete, portable definition both the encoder and
 the decoder need in order to agree about where the entropy lives and how to
 interpret it. It serializes to a canonical JSON form and hashes to a stable
 ``codec_id`` that can be stored alongside a recipient database.
+
+Saved configurations also record ``created_with``, the library version that
+wrote them. Decoding is only guaranteed with that same version; the stamp tells
+a reader which version to install. It is provenance, not part of the codec
+identity, so it is excluded from ``codec_id``.
 """
 
 from __future__ import annotations
@@ -12,12 +17,13 @@ import hashlib
 import json
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from .carriers import CarrierAdapter, PlainTextCarrier, build_carrier
 from .carriers.plain_text import PLAIN_TEXT_ID
 from .channels.base import BaseChannel, build_channel
 from .ecc import ErrorCorrectingCodec, NoErrorCorrection, build_ecc
+from ._version import __version__
 from .errors import ConfigError
 
 SCHEMA_VERSION = 1
@@ -86,11 +92,17 @@ class CodecConfig:
     error_correction: ErrorCorrectingCodec = field(default_factory=NoErrorCorrection)
     carrier: CarrierAdapter = field(default_factory=PlainTextCarrier)
     schema_version: int = SCHEMA_VERSION
+    # The library version that wrote this configuration. New configurations
+    # carry the installed version; a loaded configuration keeps the stamp it
+    # was saved with, or None when the saved form predates the stamp.
+    created_with: Optional[str] = field(default_factory=lambda: __version__)
 
     def validate(self) -> None:
         """Reject declarations the installed implementation cannot honor."""
         if type(self.schema_version) is not int or self.schema_version != SCHEMA_VERSION:
             raise ConfigError(f"unsupported schema version: {self.schema_version!r}")
+        if self.created_with is not None and type(self.created_with) is not str:
+            raise ConfigError("created_with must be a version string")
         if self.framing.format != "length_crc_v1":
             raise ConfigError(f"unsupported framing format: {self.framing.format!r}")
         if self.packing is not PackingMode.POWER_OF_TWO:
@@ -147,13 +159,24 @@ class CodecConfig:
                 "version": self.carrier.version,
                 "params": self.carrier.params(),
             }
+        if self.created_with is not None:
+            data["created_with"] = self.created_with
         return data
 
+    @property
+    def from_other_version(self) -> bool:
+        """Whether a different library version wrote this configuration."""
+        return self.created_with is not None and self.created_with != __version__
+
     def canonical_json(self) -> str:
-        """A deterministic JSON serialization used for hashing and storage."""
-        return json.dumps(
-            self.to_dict(), sort_keys=True, separators=(",", ":"), ensure_ascii=True
-        )
+        """A deterministic JSON serialization of the codec identity.
+
+        ``created_with`` is left out: the same codec saved by two library
+        versions keeps one codec_id.
+        """
+        identity = self.to_dict()
+        identity.pop("created_with", None)
+        return json.dumps(identity, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
 
     @property
     def codec_id(self) -> str:
@@ -163,6 +186,23 @@ class CodecConfig:
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "CodecConfig":
+        created_with = data.get("created_with")
+        if created_with is not None and type(created_with) is not str:
+            raise ConfigError("created_with must be a version string")
+        try:
+            return cls._from_dict(data, created_with)
+        except ConfigError as error:
+            if created_with is None or created_with == __version__:
+                raise
+            # Same-version decoding is the policy: name the version to install.
+            raise ConfigError(
+                f"{error}. This configuration was saved by text-steganography "
+                f"{created_with} (installed: {__version__}); decode it with "
+                f"version {created_with}"
+            ) from error
+
+    @classmethod
+    def _from_dict(cls, data: Dict[str, Any], created_with: Optional[str]) -> "CodecConfig":
         packing = data.get("packing", PackingMode.POWER_OF_TWO.value)
         if packing != PackingMode.POWER_OF_TWO.value:
             raise ConfigError(f"unsupported packing mode: {packing!r}")
@@ -197,6 +237,7 @@ class CodecConfig:
             error_correction=error_correction,
             carrier=carrier,
             schema_version=data.get("schema_version", SCHEMA_VERSION),
+            created_with=created_with,
         )
         config.validate()
         return config

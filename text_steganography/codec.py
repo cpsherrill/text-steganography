@@ -13,6 +13,7 @@ from copy import deepcopy
 from dataclasses import replace
 from typing import List, Optional, Sequence
 
+from ._version import __version__
 from .config import CodecConfig
 from .core.bits import bits_to_bytes, bytes_to_bits, int_to_bits
 from .core.planner import build_plan, observe_channels
@@ -61,6 +62,16 @@ class TextSteganographyCodec:
     @property
     def codec_id(self) -> str:
         return self._config.codec_id
+
+    def _version_warnings(self, action: str) -> tuple:
+        """Name the version mismatch; decoding is only guaranteed same-version."""
+        if not self._config.from_other_version:
+            return ()
+        return (
+            f"configuration saved by text-steganography {self._config.created_with}, "
+            f"{action} with {__version__}; results are only guaranteed with "
+            f"version {self._config.created_with}",
+        )
 
     def analyze(self, text: str) -> CapacityReport:
         """Report how much information ``text`` can carry under this config."""
@@ -167,7 +178,7 @@ class TextSteganographyCodec:
             sites_used=sites_consumed(widths, need),
             unused_capacity_bits=capacity - need,
             frame_version=FRAME_VERSION,
-            warnings=tuple(plan.warnings),
+            warnings=tuple(plan.warnings) + self._version_warnings("encoding"),
         )
 
     def _observe_slots(self, text: str):
@@ -213,8 +224,9 @@ class TextSteganographyCodec:
             known_symbols=known,
             erasures=erasures,
             observations=tuple(observations),
-            warnings=tuple(f"{channel.id}: {warning}" for channel in self._config.channels
-                           for warning in channel.metadata().warnings),
+            warnings=self._version_warnings("decoding") + tuple(
+                f"{channel.id}: {warning}" for channel in self._config.channels
+                for warning in channel.metadata().warnings),
         )
 
         ecc = self._config.error_correction

@@ -67,6 +67,15 @@ and [realistic-use measurements](docs/REALISTIC_VALIDATION.md). Large CLI JSON
 capacity counts are nullable and have an exact exponent; Markdown carrier 3
 protects multiline reference definitions.
 
+## Keeping copies readable
+
+A copy is only guaranteed to decode with the library version that encoded it.
+Later versions may place bits differently. Every saved configuration
+(`config.to_dict()`) records that version as `created_with`, so keep the
+configuration with your recipient records. To read an old copy, install the
+version named there. A different version still tries, but warns; if a
+component's rules changed, it refuses and names the version to install.
+
 ## Capacity counts
 
 “Distinct payloads” means the number of byte strings at the **maximum usable
