@@ -39,18 +39,16 @@ Keep version changes, release notes, and publishing configuration in a separate
 release PR after agreeing on scope. Merging ordinary fixes does not create a
 release or authorize package publication.
 
-## Decoding compatibility decision before the first release
+## Decoding compatibility policy
 
-Design section 4.9 promises that released copies stay decodable later. Current
-registries retain only one implementation per component ID; a version mismatch
-is rejected. That is explicit failure rather than a compatibility implementation.
-The Markdown v2-to-v3 transition occurs before any published release.
+Decided in #19: decoding is guaranteed only with the library version that encoded
+a copy (design section 4.9). Saved configurations record that version as
+`created_with`, outside the `codec_id` hash, so users know which version to
+install. The single source of the version is `text_steganography/_version.py`;
+keep it equal to `pyproject.toml`, which a test enforces.
 
-The proposed policy in #19 is to preserve decoding for released format versions,
-using version-specific implementations and historical golden vectors. Legacy
-implementations need not remain available for new encoding. This proposal still
-needs a defined support scope and implementation before claiming that guarantee;
-it is not delivered by a component version bump alone. If the release instead
-requires an exact library version for decoding, revise the design promise and
-release documentation explicitly before publishing. Never reinterpret an old
-configuration as a new layout just to bypass a version check.
+When changing a component's site layout or rules, bump its component version so
+mismatched configurations are refused with the version hint. Do not add legacy
+implementations to preserve old layouts, and never reinterpret an old
+configuration as a new layout. Release notes must say which component versions
+changed so users know a new library version cannot read older copies.

@@ -281,13 +281,23 @@ New channels, repertoires, packing methods, error-correction adapters, carrier a
 
 ### 4.9 Stable, reproducible decoding
 
-A copy encoded by one released version should remain decodable later. Channel mappings and configuration schemas therefore need stable identifiers and versions.
+Decision (October 2026, recorded in
+[issue #19](https://github.com/cpsherrill/text-steganography/issues/19)): a copy is
+guaranteed decodable **with the library version that encoded it**. Later versions
+are free to change site layouts, framing, and component rules without carrying
+legacy implementations; reading an old copy means installing its version.
 
-Implementation note (pre-release): the current registries reject older component
-versions and do not yet fulfill cross-release decoding compatibility. Before
-publishing, settle and implement the support policy in
-[issue #19](https://github.com/cpsherrill/text-steganography/issues/19); see
-[maintainer guidance](MAINTAINING.md#decoding-compatibility-decision-before-the-first-release).
+To make that workable, every saved configuration records `created_with`, the
+library version that wrote it. The stamp is provenance only and is excluded from
+`codec_id`. A different installed version still loads the configuration and may
+decode it, but every encode and decode result then carries a warning that results
+are only guaranteed with the stamped version. Whenever a component's rules have
+changed, its version check refuses the configuration and the error names the
+version to install. Never reinterpret an old configuration as a new layout.
+
+The version lives beside the copies, not inside them. A tag hidden in the payload
+could only be read by a library that already places bits the same way, which is
+exactly the reader that does not need it (see section 11.1).
 
 ---
 

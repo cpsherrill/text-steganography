@@ -16,6 +16,10 @@
 
 ### Added
 
+- Same-version decoding policy (#19): saved configurations record `created_with`,
+  the library version that wrote them, outside the `codec_id` hash. Encoding or
+  decoding with a different version warns, and refusals for changed components
+  name the version to install.
 - Regression, property-based, independent parser, CLI, and runnable example tests.
 - CI across Python 3.9–3.14, macOS and Windows, plus distribution installation checks.
 - Reproducible local transport records and a core performance measurement script.
@@ -25,13 +29,15 @@
 
 - Canonical Unicode and zero-width channels, HTML and source-code carriers use
   version 2. Markdown now uses version 3 after the continuation-title fix.
-  Earlier changed-component configurations are rejected; use their matching old
-  code for old copies, and create new copies/configurations from original covers.
+  Earlier changed-component configurations are rejected; decode old copies with
+  the library version that made them, and create new copies from original covers.
 - Risky channels require explicit policy permissions. Some unstable combinations
   and unsupported source syntax are rejected before encoding.
 - Probe format 2 excludes protected regions and reports unavailable rates when
   site counts cannot align.
 - Multi-bit ECC configurations record block geometry and `zero_pad_v1` explicitly.
+- Saved configurations gain a `created_with` key. Existing codec IDs and golden
+  vectors are unchanged; configurations saved before the stamp load as unstamped.
 - Large CLI JSON capacity counts are now nullable; see
   [the output contract](docs/READINESS.md#capacity-output-contract).
 - Existing plain-text identity/repetition golden vectors and codec IDs remain
